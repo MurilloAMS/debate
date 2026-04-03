@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DEBATE</title>
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="/style.css" />
 
   <style>
     body {
@@ -146,33 +146,33 @@
 
     <div class="user-box">
 
-  <!-- 🔔 SININHO -->
-  <div class="notification-wrapper" id="notificationIcon">
-    <img src="icons8-bell-50.png" />
-    <div class="notification-count" id="notificationCounter" style="display:none;">0</div>
-  </div>
+      <!-- 🔔 SININHO -->
+      <div class="notification-wrapper" id="notificationIcon">
+        <img src="/icons8-bell-50.png" />
+        <div class="notification-count" id="notificationCounter" style="display:none;">0</div>
+      </div>
 
-  <!-- LISTA -->
-  <ul id="notificationList" style="
-    display:none;
-    position:absolute;
-    right:10px;
-    top:50px;
-    background:#111;
-    padding:10px;
-    border-radius:10px;
-    list-style:none;
-    width:200px;
-    max-height:300px;
-    overflow-y:auto;
-    z-index:999;
-  "></ul>
+      <!-- LISTA -->
+      <ul id="notificationList" style="
+        display:none;
+        position:absolute;
+        right:10px;
+        top:50px;
+        background:#111;
+        padding:10px;
+        border-radius:10px;
+        list-style:none;
+        width:200px;
+        max-height:300px;
+        overflow-y:auto;
+        z-index:999;
+      "></ul>
 
-  <img id="userPhoto" src="" style="display:none;" />
-  <span id="userInfo"></span>
-  <button id="logoutBtn">Sair</button>
+      <img id="userPhoto" src="" style="display:none;" />
+      <span id="userInfo"></span>
+      <button id="logoutBtn">Sair</button>
 
-</div>
+    </div>
   </div>
 
   <!-- CATEGORIAS -->
@@ -191,7 +191,7 @@
 
   <!-- 🔥 AUTH -->
   <script type="module">
-    import { auth, onAuthStateChanged, signOut } from './firebase.js';
+    import { auth, onAuthStateChanged, signOut } from '/firebase.js';
 
     const userInfo = document.getElementById('userInfo');
     const logoutBtn = document.getElementById('logoutBtn');
@@ -201,10 +201,8 @@
       if (!user) {
         window.location.href = 'login.html';
       } else {
-        // Nome ou email
         userInfo.textContent = user.displayName || user.email;
 
-        // Foto do Google (se tiver)
         if (user.photoURL) {
           userPhoto.src = user.photoURL;
           userPhoto.style.display = 'block';
