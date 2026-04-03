@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastro - DEBATE</title>
+  <link rel="stylesheet" href="auth.css" />
+</head>
+<body class="cadastro-body">
+  <div class="cadastro-container">
+    <h1 class="cadastro-title"><span class="red">D</span>EBATE - Cadastro</h1>
+
+    <form class="cadastro-form" id="cadastroForm">
+      <input type="text" id="nome" placeholder="Nome completo" required />
+      <input type="email" id="email" placeholder="E-mail" required />
+      <input type="password" id="senha" placeholder="Senha" required />
+      <button type="submit" class="cadastro-btn">Cadastrar</button>
+
+      <p class="cadastro-login">
+        Já tem uma conta? <a href="login.html">Entrar</a>
+      </p>
+    </form>
+  </div>
+
+  <script type="module">
+    import {
+      auth,
+      createUserWithEmailAndPassword
+    } from './firebase.js';
+
+    const cadastroForm = document.getElementById('cadastroForm');
+
+    cadastroForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const nome = document.getElementById('nome').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const senha = document.getElementById('senha').value;
+
+      try {
+        await createUserWithEmailAndPassword(auth, email, senha);
+
+        alert('Conta criada com sucesso!');
+        window.location.href = 'index.html';
+      } catch (err) {
+        alert('Erro: ' + err.message);
+      }
+    });
+  </script>
+</body>
+</html>

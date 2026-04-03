@@ -1,0 +1,77 @@
+/* Estilo Cadastro e Login */
+body.cadastro-body {
+    background-color: #111;
+    color: #fff;
+    font-family: 'Arial', sans-serif;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.cadastro-container {
+    background-color: #1c1c1c;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.cadastro-title {
+    font-size: 2em;
+    margin-bottom: 20px;
+}
+
+.red {
+    color: red;
+}
+
+.cadastro-form input {
+    width: 100%;
+    padding: 15px;
+    margin-bottom: 15px;
+    background-color: #222;
+    border: 1px solid #333;
+    border-radius: 8px;
+    color: #fff;
+    font-size: 1em;
+}
+
+.cadastro-form input:focus {
+    border-color: red;
+    outline: none;
+}
+
+.cadastro-btn {
+    background-color: red;
+    color: white;
+    width: 100%;
+    padding: 15px;
+    border: none;
+    border-radius: 8px;
+    font-size: 1.1em;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.cadastro-btn:hover {
+    background-color: #ff4d4d;
+}
+
+.cadastro-login {
+    margin-top: 20px;
+    font-size: 0.9em;
+}
+
+.cadastro-login a {
+    color: red;
+    text-decoration: none;
+}
+
+.cadastro-login a:hover {
+    text-decoration: underline;
+}

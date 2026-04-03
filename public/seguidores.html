@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Seguidores</title>
+</head>
+<body>
+
+<h2>Seguidores</h2>
+<div id="lista"></div>
+
+<script type="module">
+import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const db = getFirestore();
+const params = new URLSearchParams(location.search);
+const uid = params.get('uid');
+
+const lista = document.getElementById('lista');
+
+const snap = await getDoc(doc(db, "usuarios", uid));
+const data = snap.data();
+
+data.seguidores.forEach(id => {
+  const div = document.createElement('div');
+  div.textContent = id;
+  div.onclick = () => location.href = `perfil.html?uid=${id}`;
+  lista.appendChild(div);
+});
+</script>
+
+</body>
+</html>

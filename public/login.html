@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Login | DEBATE</title>
+  <link rel="stylesheet" href="auth.css" />
+
+  <style>
+    .input-login {
+      background-color: #1a1a1a;
+      border: 1px solid #444;
+      border-radius: 6px;
+      padding: 12px;
+      width: 100%;
+      margin-bottom: 15px;
+      color: #fff;
+      font-size: 16px;
+      box-shadow: inset 0 0 5px #000;
+    }
+  </style>
+</head>
+
+<body class="cadastro-body">
+  <div class="cadastro-container">
+    <h1 class="cadastro-title"><span class="red">D</span>EBATE - Login</h1>
+
+    <form id="loginForm">
+      <input type="email" id="emailLogin" class="input-login" placeholder="E-mail" required />
+      <input type="password" id="senhaLogin" class="input-login" placeholder="Senha" required />
+      <button type="submit" class="cadastro-btn">Entrar</button>
+    </form>
+
+    <br>
+
+    <button id="googleBtn" class="cadastro-btn" style="background:#fff;color:#000;">
+      Entrar com Google
+    </button>
+
+    <p class="cadastro-login">
+      Não tem uma conta? <a href="cadastro.html">Cadastre-se</a>
+    </p>
+  </div>
+
+  <script type="module">
+    import {
+      auth,
+      signInWithEmailAndPassword,
+      signInWithPopup,
+      provider
+    } from './firebase.js';
+
+    const formLogin = document.getElementById('loginForm');
+    const googleBtn = document.getElementById('googleBtn');
+
+    formLogin.addEventListener('submit', async (event) => {
+      event.preventDefault();
+
+      const email = document.getElementById('emailLogin').value.trim();
+      const senha = document.getElementById('senhaLogin').value.trim();
+
+      try {
+        await signInWithEmailAndPassword(auth, email, senha);
+        window.location.replace('/index.html');
+      } catch (err) {
+        alert('Erro: ' + err.message);
+      }
+    });
+
+    googleBtn.onclick = async () => {
+      try {
+        await signInWithPopup(auth, provider);
+        window.location.replace('/index.html');
+      } catch (err) {
+        alert(err.message);
+      }
+    };
+  </script>
+</body>
+</html>

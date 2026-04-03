@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Seguindo</title>
+
+  <style>
+    body {
+      background: #0b0f14;
+      color: white;
+      font-family: Arial;
+      padding: 20px;
+    }
+
+    h2 {
+      text-align: center;
+    }
+
+    .user-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: #111;
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+
+    .user-item img {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .voltar {
+      display: block;
+      margin-top: 20px;
+      text-align: center;
+      color: #aaa;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Seguindo</h2>
+
+  <div id="lista"></div>
+
+  <a href="javascript:history.back()" class="voltar">← Voltar</a>
+
+  <script type="module">
+    import {
+      getFirestore,
+      doc,
+      getDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const db = getFirestore();
+
+    const params = new URLSearchParams(location.search);
+    const uid = params.get('uid');
+
+    const lista = document.getElementById('lista');
+
+    async function carregar() {
+      const snap = await getDoc(doc(db, "usuarios", uid));
+
+      if (!snap.exists()) return;
+
+      const data = snap.data();
+      const seguindo = data.seguindo || [];
+
+      lista.innerHTML = '';
+
+      for (const userId of seguindo) {
+        try {
+          const userSnap = await getDoc(doc(db, "usuarios", userId));
+
+          if (!userSnap.exists()) continue;
+
+          const user = userSnap.data();
+
+          const div = document.createElement('div');
+          div.className = 'user-item';
+
+          div.innerHTML = `
+            <img src="${user.foto || 'default-avatar.png'}">
+            <span>${user.nome || user.email}</span>
+          `;
+
+          div.onclick = () => {
+            location.href = `perfil.html?uid=${userId}`;
+          };
+
+          lista.appendChild(div);
+
+        } catch (e) {
+          console.log(e);
+        }
+      }
+    }
+
+    carregar();
+  </script>
+
+</body>
+</html>

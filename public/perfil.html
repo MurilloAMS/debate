@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Perfil</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    body {
+      margin: 0;
+      background: #0b0f14;
+      color: white;
+      font-family: Arial;
+    }
+
+    .perfil-container {
+      max-width: 500px;
+      margin: auto;
+    }
+
+    .header {
+      padding: 30px 20px;
+      text-align: center;
+      background: linear-gradient(to bottom, #111, transparent);
+    }
+
+    .foto {
+      width: 110px;
+      height: 110px;
+      border-radius: 50%;
+      border: 3px solid red;
+      object-fit: cover;
+      cursor: pointer;
+    }
+
+    .nome {
+      font-size: 20px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    .bio {
+      font-size: 14px;
+      color: #aaa;
+      margin-top: 5px;
+    }
+
+    .stats {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 20px;
+    }
+
+    .stats div {
+      text-align: center;
+      cursor: pointer;
+    }
+
+    .stats strong {
+      font-size: 18px;
+    }
+
+    .stats p {
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      justify-content: center;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 20px;
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+    }
+
+    .btn-follow {
+      background: red;
+      color: white;
+    }
+
+    .btn-edit {
+      background: #222;
+      color: white;
+    }
+
+    .section {
+      padding: 20px;
+    }
+
+    .live-card {
+      position: relative;
+      height: 150px;
+      background: #111;
+      border-radius: 12px;
+      margin-bottom: 15px;
+      overflow: hidden;
+      cursor: pointer;
+    }
+
+    .live-overlay {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      font-size: 14px;
+    }
+
+    .live-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: red;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+    }
+
+    .bio-edit {
+      width: 100%;
+      padding: 10px;
+      border-radius: 10px;
+      border: none;
+      background: #111;
+      color: white;
+      margin-top: 10px;
+    }
+
+    /* 🔥 FEED PERFIL (LIVES) */
+    .feed-perfil {
+      height: 400px;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+    }
+
+    .feed-item-perfil {
+      height: 300px;
+      margin-bottom: 15px;
+      position: relative;
+      background: black;
+      border-radius: 10px;
+      overflow: hidden;
+      scroll-snap-align: start;
+    }
+
+    .feed-item-perfil video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .feed-overlay {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      font-size: 13px;
+    }
+
+    .enter-btn-perfil {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      background: red;
+      border: none;
+      padding: 6px 10px;
+      border-radius: 10px;
+      color: white;
+      cursor: pointer;
+    }
+
+    /* 🔥 REPLAYS (IG STYLE) */
+    .videos-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+    }
+
+    .video-item {
+      width: 100%;
+      height: 120px;
+      background: black;
+      position: relative;
+      cursor: pointer;
+    }
+
+    .video-item video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-overlay {
+      position: absolute;
+      bottom: 5px;
+      left: 5px;
+      font-size: 11px;
+      background: rgba(0,0,0,0.5);
+      padding: 2px 6px;
+      border-radius: 6px;
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="perfil-container">
+
+  <div class="header">
+    <img id="foto" class="foto">
+    <input type="file" id="uploadFoto" style="display:none">
+
+    <div id="nome" class="nome"></div>
+    <div id="bioView" class="bio"></div>
+
+    <div class="stats">
+      <div onclick="abrirSeguidores()">
+        <strong id="seguidores">0</strong>
+        <p>Seguidores</p>
+      </div>
+      <div onclick="abrirSeguindo()">
+        <strong id="seguindo">0</strong>
+        <p>Seguindo</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="followBtn" class="btn btn-follow"></button>
+      <button id="editarBtn" class="btn btn-edit">Editar</button>
+    </div>
+  </div>
+
+  <div class="section" id="editArea" style="display:none;">
+    <input id="bio" class="bio-edit" placeholder="Escreva sua bio..." />
+    <button id="salvar" class="btn btn-follow">Salvar</button>
+  </div>
+
+  <div class="section">
+    <h3>🔴 Ao vivo</h3>
+    <div id="lives"></div>
+  </div>
+
+  <div class="section">
+    <h3>🎬 Replays</h3>
+    <div id="videosGrid" class="videos-grid"></div>
+  </div>
+
+  <div class="section">
+    <h3>📺 Conteúdos ao vivo</h3>
+    <div id="feedPerfil" class="feed-perfil"></div>
+  </div>
+
+</div>
+
+<script type="module" src="perfil.js"></script>
+
+</body>
+</html>
