@@ -168,7 +168,7 @@
         z-index:999;
       "></ul>
 
-      <img id="userPhoto" src="" style="display:none;" />
+      <img id="userPhoto" src="" style="display:none; cursor:pointer;" />
       <span id="userInfo"></span>
       <button id="logoutBtn">Sair</button>
 
@@ -191,6 +191,9 @@
 
   <!-- 🔥 AUTH -->
   <script type="module">
+    userPhoto.onclick = () => {
+  window.location.href = '/perfil.html';
+};
     import { auth, onAuthStateChanged, signOut } from '/firebase.js';
 
     const userInfo = document.getElementById('userInfo');
