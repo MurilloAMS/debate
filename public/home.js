@@ -45,7 +45,8 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // ===================== WEBSOCKET =====================
 function initWebSocket() {
-  ws = new WebSocket(`ws://${location.host}`);
+  const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+ws = new WebSocket(`${wsProtocol}//${location.host}`);
 
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: 'get-rooms' }));
