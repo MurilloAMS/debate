@@ -57,7 +57,7 @@ app.post('/upload', upload.single('video'), (req, res) => {
     likes: 0,
     comments: [],
     views: 0,
-    watchTime: 0, // 🔥 NOVO
+    watchTime: 0,
     createdAt: Date.now()
   });
 
@@ -68,7 +68,7 @@ app.post('/upload', upload.single('video'), (req, res) => {
   res.send({ ok: true });
 });
 
-// ===================== 🔥 ALGORITMO =====================
+// ===================== REPLAYS =====================
 app.post('/replays', (req, res) => {
   const { seguindo = [] } = req.body;
 
@@ -80,7 +80,7 @@ app.post('/replays', (req, res) => {
       (a.likes * 2) +
       (a.comments.length * 3) +
       (a.views) +
-      (a.watchTime * 0.001) + // 🔥 retenção pesa muito
+      (a.watchTime * 0.001) +
       ((now - (a.createdAt || now)) * -0.00001);
 
     const scoreB =
@@ -97,17 +97,14 @@ app.post('/replays', (req, res) => {
   const others = [];
 
   sorted.forEach(v => {
-    if (seguindo.includes(v.userId)) {
-      followingVideos.push(v);
-    } else {
-      others.push(v);
-    }
+    if (seguindo.includes(v.userId)) followingVideos.push(v);
+    else others.push(v);
   });
 
   res.json([...followingVideos, ...others]);
 });
 
-// ===================== WATCH TIME 🔥 =====================
+// ===================== WATCH TIME =====================
 app.post('/watch-time', (req, res) => {
   const { id, tempo } = req.body;
 
@@ -216,8 +213,20 @@ wss.on('connection', (ws) => {
 
       if (ws.role === 'host') {
         roomData.hostName = ws.username;
-        roomData.hostUid = ws.userId; // 🔥 essencial pro perfil
+        roomData.hostUid = ws.userId;
         roomData.thumbnail = msg.thumbnail || null;
+
+        // 🔥 NOTIFICA TODO MUNDO QUE COMEÇOU LIVE
+        wss.clients.forEach(client => {
+          if (client.readyState === 1) {
+            client.send(JSON.stringify({
+              type: 'room-started',
+              room: room,
+              host: ws.username,
+              hostUid: ws.userId
+            }));
+          }
+        });
       }
 
       sendUsers(room);
@@ -233,8 +242,9 @@ wss.on('connection', (ws) => {
       roomData.likes++;
 
       broadcastToRoom(ws.roomId, {
-        type: 'likes',
-        value: roomData.likes
+        type: 'like-update',
+        room: ws.roomId,
+        likes: roomData.likes
       });
 
       return;
@@ -249,13 +259,11 @@ wss.on('connection', (ws) => {
 
       if (roomData.reports >= 5) {
         broadcastToRoom(ws.roomId, {
-          type: 'end-live',
-          reason: 'Live encerrada por denúncias'
+          type: 'end-live'
         });
 
         rooms.delete(ws.roomId);
         broadcastRooms();
-        return;
       }
 
       return;
@@ -323,7 +331,6 @@ function sendUsers(room) {
   if (!rooms.has(room)) return;
 
   const roomData = rooms.get(room);
-
   const users = [];
 
   roomData.clients.forEach(c => {
