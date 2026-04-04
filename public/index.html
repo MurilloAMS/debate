@@ -191,14 +191,16 @@
 
   <!-- 🔥 AUTH -->
   <script type="module">
-    userPhoto.onclick = () => {
-  window.location.href = '/perfil.html';
-};
     import { auth, onAuthStateChanged, signOut } from '/firebase.js';
 
     const userInfo = document.getElementById('userInfo');
     const logoutBtn = document.getElementById('logoutBtn');
     const userPhoto = document.getElementById('userPhoto');
+
+    // ✅ clique no perfil (AGORA NO LUGAR CERTO)
+    userPhoto.onclick = () => {
+      window.location.href = '/perfil.html';
+    };
 
     onAuthStateChanged(auth, (user) => {
       if (!user) {
