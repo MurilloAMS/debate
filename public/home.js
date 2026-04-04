@@ -1,7 +1,9 @@
-import { auth, onAuthStateChanged } from './firebase.js';
-import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+// 🔥 IMPORTA DO SEU FIREBASE (CORRETO)
+import { auth, db, onAuthStateChanged } from '/firebase.js';
 
-const db = getFirestore();
+// 🔥 FIRESTORE (APENAS FUNÇÕES, SEM getFirestore)
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
 const feed = document.getElementById('feed');
 
 const notificationIcon = document.getElementById('notificationIcon');
@@ -14,7 +16,7 @@ const previewPlayers = {};
 let followingList = [];
 let notifications = [];
 
-let ws; // 🔥 CORREÇÃO
+let ws;
 
 // ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
@@ -89,8 +91,8 @@ function renderFeed() {
       <div class="overlay">
         <h3>${roomData.room}</h3>
         <p style="cursor:pointer;" onclick="location.href='perfil.html?uid=${roomData.hostUid || roomData.host}'">
-  🎤 ${roomData.host}
-</p>
+          🎤 ${roomData.host}
+        </p>
         <p>👥 ${roomData.count}</p>
       </div>
 
