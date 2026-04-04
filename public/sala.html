@@ -7,20 +7,11 @@
 
   <style>
     @keyframes floatUp {
-  0% {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-200px);
-    opacity: 0;
-  }
-}
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
+      0% { transform: translateY(0); opacity: 1; }
+      100% { transform: translateY(-200px); opacity: 0; }
     }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       background: #0b0f14;
@@ -29,7 +20,6 @@
       overflow: hidden;
     }
 
-    /* 🔥 TOPO */
     .top-bar {
       position: fixed;
       top: 0;
@@ -42,17 +32,9 @@
       z-index: 1000;
     }
 
-    .title {
-      font-weight: bold;
-      color: red;
-    }
+    .title { font-weight: bold; color: red; }
+    .status { font-size: 12px; opacity: 0.7; }
 
-    .status {
-      font-size: 12px;
-      opacity: 0.7;
-    }
-
-    /* 🔥 ÁREA DE VÍDEO */
     .video-area {
       position: relative;
       width: 100%;
@@ -68,7 +50,6 @@
       background: black;
     }
 
-    /* 🔥 OVERLAY INFO */
     .overlay {
       position: absolute;
       bottom: 90px;
@@ -76,16 +57,6 @@
       z-index: 10;
     }
 
-    .overlay h3 {
-      font-size: 18px;
-    }
-
-    .overlay p {
-      font-size: 13px;
-      opacity: 0.8;
-    }
-
-    /* 🔥 BOTÃO PEDIR PARA ENTRAR */
     .btn-request {
       position: absolute;
       bottom: 20px;
@@ -100,7 +71,6 @@
       z-index: 20;
     }
 
-    /* 🔥 CHAT */
     .chat {
       position: absolute;
       right: 0;
@@ -118,10 +88,6 @@
       list-style: none;
       padding: 10px;
       font-size: 13px;
-    }
-
-    #chatMessages li {
-      margin-bottom: 6px;
     }
 
     #chatForm {
@@ -145,7 +111,6 @@
       cursor: pointer;
     }
 
-    /* 🔥 MOBILE */
     @media (max-width: 768px) {
       .chat {
         width: 100%;
@@ -154,44 +119,40 @@
         top: auto;
       }
 
-      video {
-        height: 50%;
-      }
+      video { height: 50%; }
     }
-
   </style>
 </head>
 
 <body>
 
-  <!-- 🔥 TOPO -->
+  <!-- TOPO -->
   <div class="top-bar">
     <div class="title">🔴 AO VIVO</div>
     <div id="status" class="status">Conectando...</div>
   </div>
 
-  <!-- 🔥 VÍDEOS -->
-   <div style="position:fixed; right:10px; bottom:100px; color:white;">
-  <button id="likeBtn">❤️</button>
-  <div id="likesCount">0</div>
-  <button id="reportBtn">🚨 Denunciar</button>
-</div>
+  <!-- CONTROLES -->
+  <div style="position:fixed; right:10px; bottom:100px;">
+    <button id="likeBtn">❤️</button>
+    <div id="likesCount">0</div>
+    <button id="reportBtn">🚨</button>
+  </div>
+
+  <!-- VÍDEO -->
   <div class="video-area">
     <video id="localVideo" autoplay muted playsinline></video>
     <video id="remoteVideo" autoplay playsinline></video>
 
-    <!-- 🔥 INFO -->
     <div class="overlay">
       <h3 id="roomName">Sala</h3>
       <p id="hostName">Host</p>
     </div>
 
-    <!-- 🔥 BOTÃO -->
     <button id="btnRequest" class="btn-request">
       Pedir para entrar 🎤
     </button>
 
-    <!-- 🔥 CHAT -->
     <div class="chat">
       <ul id="chatMessages"></ul>
 
@@ -200,29 +161,33 @@
         <button>Enviar</button>
       </form>
     </div>
-
   </div>
 
-  <!-- 🔒 BLOQUEIO DE ACESSO -->
-<script type="module">
-  import { auth, onAuthStateChanged } from './firebase.js';
+  <!-- 🔥 PROTEÇÃO LOGIN -->
+  <script type="module">
+    import { auth, onAuthStateChanged } from '/firebase.js';
 
-  onAuthStateChanged(auth, (user) => {
-    if (!user) {
-      window.location.href = 'login.html';
-    }
-  });
-</script>
+    window.addEventListener("DOMContentLoaded", () => {
+      onAuthStateChanged(auth, (user) => {
+        if (!user) {
+          window.location.href = 'login.html';
+        }
+      });
+    });
+  </script>
 
-<!-- 🔥 SEU SISTEMA -->
-<script src="/client.js"></script>
+  <!-- 🔥 SISTEMA DE STREAM -->
+  <script src="/client.js"></script>
 
-<script>
-  const params = new URLSearchParams(location.search);
-  const room = params.get('room') || 'Sala';
+  <!-- 🔥 CONFIG DA SALA -->
+  <script>
+    window.addEventListener("DOMContentLoaded", () => {
+      const params = new URLSearchParams(location.search);
+      const room = params.get('room') || 'Sala';
 
-  document.getElementById('roomName').textContent = room;
-</script>
+      document.getElementById('roomName').textContent = room;
+    });
+  </script>
 
 </body>
 </html>

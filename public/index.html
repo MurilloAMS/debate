@@ -224,5 +224,29 @@
   <!-- FEED -->
   <script type="module" src="/home.js"></script>
 
+  <button id="startLiveBtn" style="
+  position: fixed;
+  bottom: 80px;
+  left: 20px;
+  background: red;
+  color: white;
+  border: none;
+  padding: 12px 18px;
+  border-radius: 30px;
+  font-weight: bold;
+  z-index: 999;
+">
+  🔴 Iniciar Debate
+</button>
+<script>
+  document.getElementById('startLiveBtn').onclick = () => {
+    const room = prompt('Nome da sua live:');
+
+    if (!room) return;
+
+    location.href = `/sala.html?room=${room}&role=host`;
+  };
+</script>
+
 </body>
 </html>
