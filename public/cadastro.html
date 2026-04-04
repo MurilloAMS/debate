@@ -43,7 +43,8 @@
         alert('Conta criada com sucesso!');
         window.location.href = 'index.html';
       } catch (err) {
-        alert('Erro: ' + err.message);
+        alert(err.code);
+console.log(err);
       }
     });
   </script>

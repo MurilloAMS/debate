@@ -1,7 +1,7 @@
-// 🔥 IMPORTA DO SEU FIREBASE (CORRETO)
+// 🔥 IMPORTA DO FIREBASE
 import { auth, db, onAuthStateChanged } from '/firebase.js';
 
-// 🔥 FIRESTORE (APENAS FUNÇÕES, SEM getFirestore)
+// 🔥 FIRESTORE
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const feed = document.getElementById('feed');
@@ -18,19 +18,29 @@ let notifications = [];
 
 let ws;
 
-// ===================== LOGIN =====================
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    window.location.href = 'login.html';
-    return;
-  }
+// 🔥 GARANTE QUE TUDO SÓ RODA DEPOIS QUE CARREGAR
+window.addEventListener("DOMContentLoaded", () => {
 
-  const userSnap = await getDoc(doc(db, "usuarios", user.uid));
-  if (userSnap.exists()) {
-    followingList = userSnap.data().seguindo || [];
-  }
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = 'login.html';
+      return;
+    }
 
-  initWebSocket();
+    try {
+      const userSnap = await getDoc(doc(db, "usuarios", user.uid));
+
+      if (userSnap.exists()) {
+        followingList = userSnap.data().seguindo || [];
+      }
+
+      initWebSocket();
+
+    } catch (error) {
+      console.error("Erro Firestore:", error);
+    }
+  });
+
 });
 
 // ===================== WEBSOCKET =====================
@@ -75,7 +85,10 @@ function initWebSocket() {
   };
 }
 
-// ===================== FEED =====================
+// ===================== RESTO (igual ao seu) =====================
+
+// (mantive tudo igual porque está certo 👇)
+
 function renderFeed() {
   feed.innerHTML = '';
 
@@ -137,7 +150,6 @@ function renderFeed() {
   observeScroll();
 }
 
-// ===================== SCROLL =====================
 function observeScroll() {
   const items = document.querySelectorAll('.feed-item');
 
@@ -153,7 +165,6 @@ function observeScroll() {
   items.forEach(item => observer.observe(item));
 }
 
-// ===================== PRELOAD =====================
 function preloadNext() {
   const next = roomsData[currentIndex + 1];
   if (!next) return;
@@ -167,7 +178,6 @@ function preloadVideos() {
   });
 }
 
-// ===================== COMENTÁRIOS =====================
 function showFloatingComment(text) {
   const currentItem = document.querySelector(`.feed-item[data-index="${currentIndex}"]`);
   if (!currentItem) return;
@@ -184,7 +194,6 @@ function showFloatingComment(text) {
   setTimeout(() => c.remove(), 4000);
 }
 
-// ===================== VIDEO =====================
 async function startPreview(room, offer) {
   if (previewPlayers[room]) return;
 
@@ -206,7 +215,6 @@ async function startPreview(room, offer) {
   previewPlayers[room] = pc;
 }
 
-// ===================== NOTIFICAÇÕES =====================
 function addNotification(host, room) {
   notifications.push({ host, room });
   updateNotificationUI();
