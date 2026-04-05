@@ -23,40 +23,45 @@
   </div>
 
   <script type="module">
-    import {
-      auth,
-      createUserWithEmailAndPassword
-    } from './firebase.js';
+  import {
+    auth,
+    db,
+    createUserWithEmailAndPassword
+  } from './firebase.js';
 
-    // 🔥 IMPORTANTE
-    import { updateProfile } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+  import { doc, setDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    const cadastroForm = document.getElementById('cadastroForm');
+  const cadastroForm = document.getElementById('cadastroForm');
 
-    cadastroForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  cadastroForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      const nome = document.getElementById('nome').value.trim();
-      const email = document.getElementById('email').value.trim();
-      const senha = document.getElementById('senha').value;
+    const nome = document.getElementById('nome').value.trim();
+    const email = document.getElementById('email').value.trim();
+    const senha = document.getElementById('senha').value;
 
-      try {
-        // 🔥 cria usuário
-        const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, senha);
+      const user = userCredential.user;
 
-        // 🔥 salva o nome no Firebase
-        await updateProfile(userCredential.user, {
-          displayName: nome
-        });
+      // 🔥 SALVA NO FIRESTORE
+      await setDoc(doc(db, "usuarios", user.uid), {
+        uid: user.uid,
+        nome: nome,
+        email: email,
+        foto: null,
+        seguindo: [],
+        seguidores: []
+      });
 
-        alert('Conta criada com sucesso!');
-        window.location.href = 'index.html';
+      alert('Conta criada com sucesso!');
+      window.location.href = 'index.html';
 
-      } catch (err) {
-        alert(err.message);
-        console.log(err);
-      }
-    });
-  </script>
+    } catch (err) {
+      alert(err.message);
+      console.log(err);
+    }
+  });
+</script>
 </body>
 </html>

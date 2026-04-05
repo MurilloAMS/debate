@@ -45,10 +45,16 @@
   <script type="module">
     import {
       auth,
+      db,
       signInWithEmailAndPassword,
       signInWithPopup,
       provider
     } from './firebase.js';
+
+    import {
+      doc,
+      setDoc
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
     const formLogin = document.getElementById('loginForm');
     const googleBtn = document.getElementById('googleBtn');
@@ -67,9 +73,21 @@
       }
     });
 
+    // 🔥 LOGIN COM GOOGLE + SALVAR NO FIRESTORE
     googleBtn.onclick = async () => {
       try {
-        await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(auth, provider);
+        const user = result.user;
+
+        await setDoc(doc(db, "usuarios", user.uid), {
+          uid: user.uid,
+          nome: user.displayName || "Usuário",
+          email: user.email,
+          foto: user.photoURL || null,
+          seguindo: [],
+          seguidores: []
+        }, { merge: true });
+
         window.location.replace('/index.html');
       } catch (err) {
         alert(err.message);

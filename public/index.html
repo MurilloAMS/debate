@@ -191,34 +191,28 @@
 
   <!-- 🔥 AUTH -->
   <script type="module">
-    import { auth, onAuthStateChanged, signOut } from '/firebase.js';
+   import { auth, onAuthStateChanged, signOut, db } from '/firebase.js';
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    const userInfo = document.getElementById('userInfo');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const userPhoto = document.getElementById('userPhoto');
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = 'login.html';
+  } else {
+    const userSnap = await getDoc(doc(db, "usuarios", user.uid));
 
-    // ✅ clique no perfil (AGORA NO LUGAR CERTO)
-    userPhoto.onclick = () => {
-      window.location.href = '/perfil.html';
-    };
+    if (userSnap.exists()) {
+      const data = userSnap.data();
+      userInfo.textContent = data.nome;
+    } else {
+      userInfo.textContent = user.email;
+    }
 
-    onAuthStateChanged(auth, (user) => {
-      if (!user) {
-        window.location.href = 'login.html';
-      } else {
-        userInfo.textContent = user.displayName || user.email;
-
-        if (user.photoURL) {
-          userPhoto.src = user.photoURL;
-          userPhoto.style.display = 'block';
-        }
-      }
-    });
-
-    logoutBtn.onclick = async () => {
-      await signOut(auth);
-      window.location.href = 'login.html';
-    };
+    if (user.photoURL) {
+      userPhoto.src = user.photoURL;
+      userPhoto.style.display = 'block';
+    }
+  }
+});
   </script>
 
   <!-- FEED -->

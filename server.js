@@ -1,4 +1,3 @@
-const videoStats = {};
 const express = require('express');
 const path = require('path');
 const http = require('http');
@@ -68,109 +67,13 @@ app.post('/upload', upload.single('video'), (req, res) => {
   res.send({ ok: true });
 });
 
-// ===================== REPLAYS =====================
-app.post('/replays', (req, res) => {
-  const { seguindo = [] } = req.body;
-
-  const db = getDB();
-  const now = Date.now();
-
-  const sorted = db.sort((a, b) => {
-    const scoreA =
-      (a.likes * 2) +
-      (a.comments.length * 3) +
-      (a.views) +
-      (a.watchTime * 0.001) +
-      ((now - (a.createdAt || now)) * -0.00001);
-
-    const scoreB =
-      (b.likes * 2) +
-      (b.comments.length * 3) +
-      (b.views) +
-      (b.watchTime * 0.001) +
-      ((now - (b.createdAt || now)) * -0.00001);
-
-    return scoreB - scoreA;
-  });
-
-  const followingVideos = [];
-  const others = [];
-
-  sorted.forEach(v => {
-    if (seguindo.includes(v.userId)) followingVideos.push(v);
-    else others.push(v);
-  });
-
-  res.json([...followingVideos, ...others]);
-});
-
-// ===================== WATCH TIME =====================
-app.post('/watch-time', (req, res) => {
-  const { id, tempo } = req.body;
-
-  const db = getDB();
-  const video = db.find(v => v.id === id);
-
-  if (video) {
-    video.watchTime = (video.watchTime || 0) + tempo;
-    saveDB(db);
-  }
-
-  res.send({ ok: true });
-});
-
-// ===================== LIKE =====================
-app.post('/like-replay', (req, res) => {
-  const { id } = req.body;
-
-  const db = getDB();
-  const video = db.find(v => v.id === id);
-
-  if (video) {
-    video.likes++;
-    saveDB(db);
-  }
-
-  res.send({ ok: true });
-});
-
-// ===================== COMMENT =====================
-app.post('/comment-replay', (req, res) => {
-  const { id, text } = req.body;
-
-  const db = getDB();
-  const video = db.find(v => v.id === id);
-
-  if (video) {
-    video.comments.push(text);
-    saveDB(db);
-  }
-
-  res.send({ ok: true });
-});
-
-// ===================== VIEW =====================
-app.post('/view-replay', (req, res) => {
-  const { id } = req.body;
-
-  const db = getDB();
-  const video = db.find(v => v.id === id);
-
-  if (video) {
-    video.views++;
-    saveDB(db);
-  }
-
-  res.send({ ok: true });
-});
-
 // ===================== SERVIR VIDEOS =====================
 app.use('/uploads', express.static('uploads'));
 
 // ===================== WEBSOCKET =====================
 const wss = new WebSocketServer({ server });
 
-// roomId -> dados
+// 🔥 ROOMS
 const rooms = new Map();
 
 wss.on('connection', (ws) => {
@@ -187,7 +90,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== JOIN =====
+    // ================= JOIN =================
     if (msg.type === 'join') {
       const room = msg.room || 'default';
 
@@ -201,7 +104,6 @@ wss.on('connection', (ws) => {
           clients: new Set(),
           hostName: null,
           hostUid: null,
-          thumbnail: null,
           createdAt: Date.now(),
           likes: 0,
           reports: 0
@@ -214,18 +116,15 @@ wss.on('connection', (ws) => {
       if (ws.role === 'host') {
         roomData.hostName = ws.username;
         roomData.hostUid = ws.userId;
-        roomData.thumbnail = msg.thumbnail || null;
 
-        // 🔥 NOTIFICA TODO MUNDO QUE COMEÇOU LIVE
-        wss.clients.forEach(client => {
-          if (client.readyState === 1) {
-            client.send(JSON.stringify({
-              type: 'room-started',
-              room: room,
-              host: ws.username,
-              hostUid: ws.userId
-            }));
-          }
+        console.log(`🔴 Nova live iniciada: ${room}`);
+
+        // 🔥 AVISA TODOS
+        broadcastGlobal({
+          type: 'room-started',
+          room: room,
+          host: ws.username,
+          hostUid: ws.userId
         });
       }
 
@@ -234,7 +133,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== LIKE =====
+    // ================= LIKE =================
     if (msg.type === 'like') {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
@@ -250,32 +149,13 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== REPORT =====
-    if (msg.type === 'report') {
-      const roomData = rooms.get(ws.roomId);
-      if (!roomData) return;
-
-      roomData.reports++;
-
-      if (roomData.reports >= 5) {
-        broadcastToRoom(ws.roomId, {
-          type: 'end-live'
-        });
-
-        rooms.delete(ws.roomId);
-        broadcastRooms();
-      }
-
-      return;
-    }
-
-    // ===== ROOMS =====
+    // ================= ROOMS =================
     if (msg.type === 'get-rooms') {
       sendRooms(ws);
       return;
     }
 
-    // ===== PREVIEW REQUEST =====
+    // ================= PREVIEW REQUEST =================
     if (msg.type === 'request-preview') {
       const roomData = rooms.get(msg.room);
       if (!roomData) return;
@@ -291,13 +171,9 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== PREVIEW RESPONSE =====
+    // ================= PREVIEW RESPONSE =================
     if (msg.type === 'preview') {
-      wss.clients.forEach(client => {
-        if (client.readyState === 1) {
-          client.send(JSON.stringify(msg));
-        }
-      });
+      broadcastGlobal(msg);
       return;
     }
 
@@ -317,6 +193,7 @@ wss.on('connection', (ws) => {
       roomData.clients.delete(ws);
 
       if (roomData.clients.size === 0) {
+        console.log(`❌ Sala encerrada: ${room}`);
         rooms.delete(room);
       }
 
@@ -331,6 +208,7 @@ function sendUsers(room) {
   if (!rooms.has(room)) return;
 
   const roomData = rooms.get(room);
+
   const users = [];
 
   roomData.clients.forEach(c => {
@@ -386,10 +264,9 @@ function broadcastRooms() {
     });
   }
 
-  const json = JSON.stringify({ type: 'rooms-list', rooms: list });
-
-  wss.clients.forEach(c => {
-    if (c.readyState === 1) c.send(json);
+  broadcastGlobal({
+    type: 'rooms-list',
+    rooms: list
   });
 }
 
@@ -398,9 +275,7 @@ function broadcast(sender, data) {
   const room = sender.roomId;
   if (!room || !rooms.has(room)) return;
 
-  const roomData = rooms.get(room);
-
-  roomData.clients.forEach(c => {
+  rooms.get(room).clients.forEach(c => {
     if (c !== sender && c.readyState === 1) {
       c.send(JSON.stringify(data));
     }
@@ -417,9 +292,19 @@ function broadcastToRoom(room, data) {
   });
 }
 
+function broadcastGlobal(data) {
+  const json = JSON.stringify(data);
+
+  wss.clients.forEach(c => {
+    if (c.readyState === 1) {
+      c.send(json);
+    }
+  });
+}
+
 // =====================
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
-  console.log(`🔥 Servidor rodando: http://localhost:${PORT}`);
+  console.log(`🔥 Servidor rodando`);
 });

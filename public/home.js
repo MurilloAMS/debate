@@ -1,4 +1,4 @@
-// 🔥 IMPORTA DO FIREBASE
+// 🔥 IMPORTA DO SEU FIREBASE
 import { auth, db, onAuthStateChanged } from '/firebase.js';
 
 // 🔥 FIRESTORE
@@ -18,37 +18,34 @@ let notifications = [];
 
 let ws;
 
-// 🔥 GARANTE QUE TUDO SÓ RODA DEPOIS QUE CARREGAR
-window.addEventListener("DOMContentLoaded", () => {
+// ===================== LOGIN =====================
+onAuthStateChanged(auth, async (user) => {
+  if (!user) {
+    window.location.href = 'login.html';
+    return;
+  }
 
-  onAuthStateChanged(auth, async (user) => {
-    if (!user) {
-      window.location.href = 'login.html';
-      return;
+  try {
+    const userSnap = await getDoc(doc(db, "usuarios", user.uid));
+
+    if (userSnap.exists()) {
+      followingList = userSnap.data().seguindo || [];
     }
+  } catch (err) {
+    console.log("Erro ao buscar usuário:", err);
+  }
 
-    try {
-      const userSnap = await getDoc(doc(db, "usuarios", user.uid));
-
-      if (userSnap.exists()) {
-        followingList = userSnap.data().seguindo || [];
-      }
-
-      initWebSocket();
-
-    } catch (error) {
-      console.error("Erro Firestore:", error);
-    }
-  });
-
+  initWebSocket();
 });
 
 // ===================== WEBSOCKET =====================
 function initWebSocket() {
-  const wsProtocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-ws = new WebSocket(`${wsProtocol}//${location.host}`);
+  const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+
+  ws = new WebSocket(`${wsProto}://${location.host}`);
 
   ws.onopen = () => {
+    console.log("✅ Conectado ao servidor");
     ws.send(JSON.stringify({ type: 'get-rooms' }));
   };
 
@@ -56,13 +53,17 @@ ws = new WebSocket(`${wsProtocol}//${location.host}`);
     let msg;
     try { msg = JSON.parse(event.data); } catch { return; }
 
+    // 🔥 LISTA DE SALAS
     if (msg.type === 'rooms-list') {
       const followed = [];
       const others = [];
 
       msg.rooms.forEach(r => {
-        if (followingList.includes(r.host)) followed.push(r);
-        else others.push(r);
+        if (followingList.includes(r.hostUid)) {
+          followed.push(r);
+        } else {
+          others.push(r);
+        }
       });
 
       roomsData = [...followed, ...others].sort((a, b) => b.score - a.score);
@@ -71,25 +72,30 @@ ws = new WebSocket(`${wsProtocol}//${location.host}`);
       preloadVideos();
     }
 
+    // 🔥 PREVIEW
     if (msg.type === 'preview') startPreview(msg.room, msg.sdp);
 
+    // 🔥 COMENTÁRIO
     if (msg.type === 'comment') showFloatingComment(msg.text);
 
-    if (msg.type === 'like-update') {
+    // 🔥 LIKE
+    if (msg.type === 'likes') {
       const el = document.querySelector(`[data-room="${msg.room}"] .likes`);
-      if (el) el.textContent = msg.likes;
+      if (el) el.textContent = msg.value;
     }
 
-    if (msg.type === 'room-started' && followingList.includes(msg.host)) {
-      addNotification(msg.host, msg.room);
+    // 🔥 NOTIFICAÇÃO
+    if (msg.type === 'room-started' && followingList.includes(msg.hostUid)) {
+      addNotification(msg.hostName, msg.room);
     }
+  };
+
+  ws.onerror = (err) => {
+    console.log("❌ Erro WebSocket:", err);
   };
 }
 
-// ===================== RESTO (igual ao seu) =====================
-
-// (mantive tudo igual porque está certo 👇)
-
+// ===================== FEED =====================
 function renderFeed() {
   feed.innerHTML = '';
 
@@ -99,13 +105,15 @@ function renderFeed() {
     div.dataset.index = index;
     div.dataset.room = roomData.room;
 
+    const nomeExibido = roomData.host || "Usuário";
+
     div.innerHTML = `
       <video autoplay muted playsinline data-room="${roomData.room}"></video>
 
       <div class="overlay">
         <h3>${roomData.room}</h3>
-        <p style="cursor:pointer;" onclick="location.href='perfil.html?uid=${roomData.hostUid || roomData.host}'">
-          🎤 ${roomData.host}
+        <p style="cursor:pointer;" onclick="location.href='perfil.html?uid=${roomData.hostUid}'">
+          🎤 ${nomeExibido}
         </p>
         <p>👥 ${roomData.count}</p>
       </div>
@@ -125,14 +133,17 @@ function renderFeed() {
       <button class="enter-btn">Entrar</button>
     `;
 
+    // 🔥 ENTRAR
     div.querySelector('.enter-btn').onclick = () => {
       location.href = `sala.html?room=${roomData.room}&role=audience`;
     };
 
+    // 🔥 LIKE
     div.querySelector('.like-btn').onclick = () => {
       ws.send(JSON.stringify({ type: 'like', room: roomData.room }));
     };
 
+    // 🔥 COMENTÁRIO
     const input = div.querySelector('input');
     input.addEventListener('keypress', (e) => {
       if (e.key === 'Enter') {
@@ -151,6 +162,7 @@ function renderFeed() {
   observeScroll();
 }
 
+// ===================== SCROLL =====================
 function observeScroll() {
   const items = document.querySelectorAll('.feed-item');
 
@@ -166,26 +178,34 @@ function observeScroll() {
   items.forEach(item => observer.observe(item));
 }
 
+// ===================== PRELOAD =====================
 function preloadNext() {
   const next = roomsData[currentIndex + 1];
   if (!next) return;
 
-  ws.send(JSON.stringify({ type: 'request-preview', room: next.room }));
+  ws.send(JSON.stringify({
+    type: 'request-preview',
+    room: next.room
+  }));
 }
 
 function preloadVideos() {
   roomsData.slice(0, 3).forEach(r => {
-    ws.send(JSON.stringify({ type: 'request-preview', room: r.room }));
+    ws.send(JSON.stringify({
+      type: 'request-preview',
+      room: r.room
+    }));
   });
 }
 
+// ===================== COMENTÁRIOS =====================
 function showFloatingComment(text) {
   const currentItem = document.querySelector(`.feed-item[data-index="${currentIndex}"]`);
   if (!currentItem) return;
 
   const layer = currentItem.querySelector('.comments-layer');
-  const c = document.createElement('div');
 
+  const c = document.createElement('div');
   c.className = 'comment-float';
   c.textContent = text;
   c.style.top = Math.random() * 80 + '%';
@@ -195,6 +215,7 @@ function showFloatingComment(text) {
   setTimeout(() => c.remove(), 4000);
 }
 
+// ===================== VIDEO =====================
 async function startPreview(room, offer) {
   if (previewPlayers[room]) return;
 
@@ -210,12 +231,14 @@ async function startPreview(room, offer) {
   };
 
   await pc.setRemoteDescription(new RTCSessionDescription(offer));
+
   const answer = await pc.createAnswer();
   await pc.setLocalDescription(answer);
 
   previewPlayers[room] = pc;
 }
 
+// ===================== NOTIFICAÇÕES =====================
 function addNotification(host, room) {
   notifications.push({ host, room });
   updateNotificationUI();
