@@ -47,14 +47,7 @@ import { auth, onAuthStateChanged } from '/firebase.js';
         username
       });
 
-      // 🔥 AVISA O SISTEMA QUE A LIVE COMEÇOU
       if (role === 'host') {
-        send({
-          type: 'room-started',
-          room,
-          host: username
-        });
-
         startStreaming();
       }
     };
@@ -73,7 +66,7 @@ import { auth, onAuthStateChanged } from '/firebase.js';
         location.href = '/';
       }
 
-      // 🔥 RECEBER PREVIEW (feed)
+      // 🔥 PREVIEW PARA O FEED
       if (msg.type === 'request-preview' && role === 'host') {
         if (pc && pc.localDescription) {
           send({
@@ -108,7 +101,14 @@ import { auth, onAuthStateChanged } from '/firebase.js';
 
   function createPeer() {
     pc = new RTCPeerConnection({
-      iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        {
+          urls: 'turn:openrelay.metered.ca:80',
+          username: 'openrelayproject',
+          credential: 'openrelayproject'
+        }
+      ]
     });
 
     pc.onicecandidate = (e) => {
