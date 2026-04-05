@@ -78,15 +78,19 @@ function initWebSocket() {
     // 🔥 COMENTÁRIO
     if (msg.type === 'comment') showFloatingComment(msg.text);
 
-    // 🔥 LIKE
-    if (msg.type === 'likes') {
+    // 🔥 LIKE (CORRIGIDO)
+    if (msg.type === 'like-update') {
       const el = document.querySelector(`[data-room="${msg.room}"] .likes`);
-      if (el) el.textContent = msg.value;
+      if (el) el.textContent = msg.likes;
     }
 
-    // 🔥 NOTIFICAÇÃO
-    if (msg.type === 'room-started' && followingList.includes(msg.hostUid)) {
-      addNotification(msg.hostName, msg.room);
+    // 🔥 QUANDO LIVE COMEÇA → ATUALIZA FEED
+    if (msg.type === 'room-started') {
+      ws.send(JSON.stringify({ type: 'get-rooms' }));
+
+      if (followingList.includes(msg.hostUid)) {
+        addNotification(msg.host, msg.room);
+      }
     }
   };
 
