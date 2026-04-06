@@ -5,13 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DEBATE — Ao Vivo</title>
 
+  <!-- 🔥 LIVEKIT -->
   <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
 
   <style>
     body {
       margin: 0;
       background: #0b0f14;
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       color: white;
     }
 
@@ -22,6 +23,8 @@
       padding: 10px;
       background: black;
       z-index: 10;
+      text-align: center;
+      font-weight: bold;
     }
 
     video {
@@ -53,43 +56,58 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  const params = new URLSearchParams(location.search);
-  const roomName = params.get('room') || 'sala1';
+  try {
+    const params = new URLSearchParams(location.search);
+    const roomName = params.get('room') || 'sala1';
 
-  // 🔥 PEGA TOKEN DO SEU SERVER
-  const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
-  const data = await res.json();
+    // 🔥 PEGA TOKEN DO SERVIDOR
+    const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
 
-  const room = new LiveKit.Room();
-
-  await room.connect(data.url, data.token);
-
-  roomInstance = room;
-
-  // 🔥 SUA CÂMERA
-  const stream = await navigator.mediaDevices.getUserMedia({
-    video: true,
-    audio: true
-  });
-
-  document.getElementById('localVideo').srcObject = stream;
-
-  const tracks = stream.getTracks();
-
-  tracks.forEach(track => {
-    room.localParticipant.publishTrack(track);
-  });
-
-  // 🔥 RECEBER OUTROS
-  room.on('trackSubscribed', (track, publication, participant) => {
-    const videoEl = document.getElementById('remoteVideo');
-
-    if (track.kind === 'video') {
-      const mediaStream = new MediaStream([track.mediaStreamTrack]);
-      videoEl.srcObject = mediaStream;
+    if (!res.ok) {
+      throw new Error("Erro ao buscar token");
     }
-  });
 
+    const data = await res.json();
+
+    if (!data.token || !data.url) {
+      throw new Error("Token inválido");
+    }
+
+    // 🔥 CRIA SALA
+    const room = new LiveKit.Room();
+
+    await room.connect(data.url, data.token);
+    roomInstance = room;
+
+    console.log("✅ Conectado ao LiveKit");
+
+    // 🔥 SUA CÂMERA
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+
+    const localVideo = document.getElementById('localVideo');
+    localVideo.srcObject = stream;
+
+    // 🔥 ENVIA SUA CÂMERA
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track);
+    }
+
+    // 🔥 RECEBE OUTROS PARTICIPANTES
+    room.on('trackSubscribed', (track) => {
+      if (track.kind === 'video') {
+        const remoteVideo = document.getElementById('remoteVideo');
+        const mediaStream = new MediaStream([track.mediaStreamTrack]);
+        remoteVideo.srcObject = mediaStream;
+      }
+    });
+
+  } catch (err) {
+    console.error("❌ ERRO:", err);
+    alert("Erro ao conectar na live");
+  }
 });
 </script>
 
