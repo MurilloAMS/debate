@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DEBATE — Ao Vivo</title>
 
-  <!-- 🔥 LIVEKIT -->
-  <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
+  <!-- 🔥 LIVEKIT (VERSÃO ESTÁVEL) -->
+  <script defer src="https://cdn.jsdelivr.net/npm/livekit-client@2.5.7/dist/livekit-client.umd.min.js"></script>
 
   <style>
     body {
@@ -22,8 +22,8 @@
       width: 100%;
       padding: 10px;
       background: black;
-      z-index: 10;
       text-align: center;
+      z-index: 10;
       font-weight: bold;
     }
 
@@ -45,22 +45,26 @@
 <video id="localVideo" autoplay muted playsinline></video>
 <video id="remoteVideo" autoplay playsinline></video>
 
-<script type="module">
-import { auth, onAuthStateChanged } from '/firebase.js';
-
-let roomInstance;
-
-onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    location.href = '/login.html';
-    return;
-  }
+<!-- 🔥 SCRIPT PRINCIPAL -->
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
 
   try {
+    // 🔥 PEGAR USUÁRIO SALVO (AJUSTE SE NECESSÁRIO)
+    const user = JSON.parse(localStorage.getItem("user"));
+
+    if (!user) {
+      alert("Você precisa estar logado");
+      location.href = "/login.html";
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const roomName = params.get('room') || 'sala1';
 
-    // 🔥 PEGA TOKEN DO SERVIDOR
+    console.log("Entrando na sala:", roomName);
+
+    // 🔥 BUSCA TOKEN NO SERVIDOR
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
 
     if (!res.ok) {
@@ -73,24 +77,22 @@ onAuthStateChanged(auth, async (user) => {
       throw new Error("Token inválido");
     }
 
-    // 🔥 CRIA SALA
+    // 🔥 CRIA CONEXÃO LIVEKIT
     const room = new LiveKit.Room();
 
     await room.connect(data.url, data.token);
-    roomInstance = room;
 
     console.log("✅ Conectado ao LiveKit");
 
-    // 🔥 SUA CÂMERA
+    // 🔥 CAPTURA CÂMERA
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true
     });
 
-    const localVideo = document.getElementById('localVideo');
-    localVideo.srcObject = stream;
+    document.getElementById('localVideo').srcObject = stream;
 
-    // 🔥 ENVIA SUA CÂMERA
+    // 🔥 ENVIA STREAM
     for (const track of stream.getTracks()) {
       await room.localParticipant.publishTrack(track);
     }
@@ -98,9 +100,8 @@ onAuthStateChanged(auth, async (user) => {
     // 🔥 RECEBE OUTROS PARTICIPANTES
     room.on('trackSubscribed', (track) => {
       if (track.kind === 'video') {
-        const remoteVideo = document.getElementById('remoteVideo');
         const mediaStream = new MediaStream([track.mediaStreamTrack]);
-        remoteVideo.srcObject = mediaStream;
+        document.getElementById('remoteVideo').srcObject = mediaStream;
       }
     });
 
@@ -108,6 +109,7 @@ onAuthStateChanged(auth, async (user) => {
     console.error("❌ ERRO:", err);
     alert("Erro ao conectar na live");
   }
+
 });
 </script>
 

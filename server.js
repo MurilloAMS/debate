@@ -1,7 +1,6 @@
+require('dotenv').config(); // 🔥 IMPORTANTE
+
 const { AccessToken } = require('livekit-server-sdk');
-const LIVEKIT_API_KEY = 'API4oaRsDLoubk5';
-const LIVEKIT_API_SECRET = '7rgGuE3GY2idhQDuHRfc3otDoO2HIqOOcGRglCnxQpT';
-const LIVEKIT_URL = 'wss://debate-pi5mijfw.livekit.cloud';
 const express = require('express');
 const path = require('path');
 const http = require('http');
@@ -13,6 +12,11 @@ const app = express();
 const server = http.createServer(app);
 
 app.use(express.json());
+
+// ===================== 🔥 VARIÁVEIS LIVEKIT
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
+const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
 // ===================== STATIC =====================
 const publicPath = path.join(__dirname, 'public');
@@ -76,8 +80,6 @@ app.use('/uploads', express.static('uploads'));
 
 // ===================== WEBSOCKET =====================
 const wss = new WebSocketServer({ server });
-
-// 🔥 ROOMS
 const rooms = new Map();
 
 wss.on('connection', (ws) => {
@@ -94,7 +96,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ================= JOIN =================
+    // ===== JOIN =====
     if (msg.type === 'join') {
       const room = msg.room || 'default';
 
@@ -109,8 +111,7 @@ wss.on('connection', (ws) => {
           hostName: null,
           hostUid: null,
           createdAt: Date.now(),
-          likes: 0,
-          reports: 0
+          likes: 0
         });
       }
 
@@ -121,12 +122,11 @@ wss.on('connection', (ws) => {
         roomData.hostName = ws.username;
         roomData.hostUid = ws.userId;
 
-        console.log(`🔴 Nova live iniciada: ${room}`);
+        console.log(`🔴 Live iniciada: ${room}`);
 
-        // 🔥 AVISA TODOS
         broadcastGlobal({
           type: 'room-started',
-          room: room,
+          room,
           host: ws.username,
           hostUid: ws.userId
         });
@@ -137,7 +137,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ================= LIKE =================
+    // ===== LIKE =====
     if (msg.type === 'like') {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
@@ -153,29 +153,13 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ================= ROOMS =================
+    // ===== GET ROOMS =====
     if (msg.type === 'get-rooms') {
       sendRooms(ws);
       return;
     }
 
-    // ================= PREVIEW REQUEST =================
-    if (msg.type === 'request-preview') {
-      const roomData = rooms.get(msg.room);
-      if (!roomData) return;
-
-      roomData.clients.forEach(client => {
-        if (client.role === 'host') {
-          client.send(JSON.stringify({
-            type: 'request-preview',
-            room: msg.room
-          }));
-        }
-      });
-      return;
-    }
-
-    // ================= PREVIEW RESPONSE =================
+    // ===== PREVIEW =====
     if (msg.type === 'preview') {
       broadcastGlobal(msg);
       return;
@@ -306,8 +290,7 @@ function broadcastGlobal(data) {
   });
 }
 
-
-// ===================== LIVEKIT TOKEN 🔥
+// ===================== 🔥 LIVEKIT TOKEN
 app.get('/get-token', (req, res) => {
   const room = req.query.room;
   const username = req.query.username || 'user';
@@ -332,6 +315,7 @@ app.get('/get-token', (req, res) => {
     url: LIVEKIT_URL
   });
 });
+
 // =====================
 const PORT = process.env.PORT || 3000;
 
