@@ -78,7 +78,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
 
     // 🔥 CRIA CONEXÃO LIVEKIT
-    const room = new LiveKit.Room();
+    const room = new LivekitClient.Room();
 
     await room.connect(data.url, data.token);
 
