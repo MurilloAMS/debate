@@ -1,0 +1,77 @@
+/* auth.css */
+
+/* Fundo da página */
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    background: linear-gradient(135deg, #000000, #ff0000);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Poppins', sans-serif;
+}
+
+/* Container do formulário */
+.auth-container {
+    background: #ffffff;
+    padding: 40px 30px;
+    border-radius: 12px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.6);
+    width: 100%;
+    max-width: 400px;
+    text-align: center;
+}
+
+/* Título */
+.auth-container h1 {
+    margin-bottom: 20px;
+    color: #ff0000;
+    font-size: 28px;
+}
+
+/* Inputs */
+.auth-container input {
+    width: 100%;
+    padding: 12px 15px;
+    margin: 10px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    outline: none;
+    font-size: 16px;
+}
+
+/* Botão */
+.auth-container button {
+    width: 100%;
+    padding: 12px;
+    background-color: #ff0000;
+    border: none;
+    color: white;
+    font-size: 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-top: 15px;
+    transition: background-color 0.3s ease;
+}
+
+.auth-container button:hover {
+    background-color: #cc0000;
+}
+
+/* Link para login/cadastro */
+.auth-container p {
+    margin-top: 20px;
+    font-size: 14px;
+    color: #333;
+}
+
+.auth-container a {
+    color: #ff0000;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.auth-container a:hover {
+    text-decoration: underline;
+}

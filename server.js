@@ -1,3 +1,7 @@
+const { AccessToken } = require('livekit-server-sdk');
+const LIVEKIT_API_KEY = 'API4oaRsDLoubk5';
+const LIVEKIT_API_SECRET = '7rgGuE3GY2idhQDuHRfc3otDoO2HIqOOcGRglCnxQpT';
+const LIVEKIT_URL = 'wss://debate-pi5mijfw.livekit.cloud';
 const express = require('express');
 const path = require('path');
 const http = require('http');
@@ -302,6 +306,32 @@ function broadcastGlobal(data) {
   });
 }
 
+
+// ===================== LIVEKIT TOKEN 🔥
+app.get('/get-token', (req, res) => {
+  const room = req.query.room;
+  const username = req.query.username || 'user';
+
+  const at = new AccessToken(
+    LIVEKIT_API_KEY,
+    LIVEKIT_API_SECRET,
+    { identity: username }
+  );
+
+  at.addGrant({
+    roomJoin: true,
+    room: room,
+    canPublish: true,
+    canSubscribe: true
+  });
+
+  const token = at.toJwt();
+
+  res.json({
+    token,
+    url: LIVEKIT_URL
+  });
+});
 // =====================
 const PORT = process.env.PORT || 3000;
 
