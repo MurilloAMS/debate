@@ -60,7 +60,7 @@ onAuthStateChanged(auth, async (user) => {
   const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
   const data = await res.json();
 
-  const room = new LivekitClient.Room();
+  const room = new LiveKit.Room();
 
   await room.connect(data.url, data.token);
 
