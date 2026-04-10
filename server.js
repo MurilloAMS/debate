@@ -18,6 +18,16 @@ const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
+// 🔥 VALIDAÇÃO (ESSENCIAL)
+if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
+  console.error("❌ ERRO: Variáveis do LiveKit não configuradas!");
+  console.log({
+    LIVEKIT_API_KEY,
+    LIVEKIT_API_SECRET,
+    LIVEKIT_URL
+  });
+}
+
 // ===================== STATIC =====================
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
@@ -292,33 +302,43 @@ function broadcastGlobal(data) {
 
 // ===================== 🔥 LIVEKIT TOKEN
 app.get('/get-token', (req, res) => {
-  const room = req.query.room;
-  const username = req.query.username || 'user';
+  try {
+    const room = req.query.room;
+    const username = req.query.username || 'user';
 
-  const at = new AccessToken(
-    LIVEKIT_API_KEY,
-    LIVEKIT_API_SECRET,
-    { identity: username }
-  );
+    if (!room) {
+      return res.status(400).json({ error: 'Room não informado' });
+    }
 
-  at.addGrant({
-    roomJoin: true,
-    room: room,
-    canPublish: true,
-    canSubscribe: true
-  });
+    const at = new AccessToken(
+      LIVEKIT_API_KEY,
+      LIVEKIT_API_SECRET,
+      { identity: username }
+    );
 
-  const token = at.toJwt();
+    at.addGrant({
+      roomJoin: true,
+      room: room,
+      canPublish: true,
+      canSubscribe: true
+    });
 
-  res.json({
-    token,
-    url: LIVEKIT_URL
-  });
+    const token = at.toJwt();
+
+    res.json({
+      token,
+      url: LIVEKIT_URL
+    });
+
+  } catch (err) {
+    console.error("❌ ERRO AO GERAR TOKEN:", err);
+    res.status(500).json({ error: 'Erro interno' });
+  }
 });
 
 // =====================
 const PORT = process.env.PORT || 3000;
 
 server.listen(PORT, () => {
-  console.log(`🔥 Servidor rodando`);
+  console.log(`🔥 Servidor rodando na porta ${PORT}`);
 });
