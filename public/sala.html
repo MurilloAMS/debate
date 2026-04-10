@@ -68,7 +68,7 @@ onAuthStateChanged(auth, async (user) => {
       throw new Error("Token inválido");
     }
 
-    const room = new Room();
+    const room = new LiveKitRoom();
 
     await room.connect(data.url, data.token);
 
