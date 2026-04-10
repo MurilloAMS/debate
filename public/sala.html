@@ -44,8 +44,8 @@
 
 <script type="module">
 
-// 🔥 IMPORTAÇÃO CORRETA (SEM CDN GLOBAL)
-import { Room } from 'https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.esm.mjs';
+// 🔥 IMPORTAÇÃO CORRIGIDA (ESSA É A CHAVE)
+import { Room } from 'https://esm.sh/livekit-client';
 import { auth, onAuthStateChanged } from '/firebase.js';
 
 onAuthStateChanged(auth, async (user) => {
@@ -61,7 +61,6 @@ onAuthStateChanged(auth, async (user) => {
 
     console.log("Entrando na sala:", roomName);
 
-    // 🔥 TOKEN DO SERVER
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
     const data = await res.json();
 
@@ -69,14 +68,12 @@ onAuthStateChanged(auth, async (user) => {
       throw new Error("Token inválido");
     }
 
-    // 🔥 LIVEKIT
     const room = new Room();
 
     await room.connect(data.url, data.token);
 
     console.log("✅ Conectado!");
 
-    // 🔥 CAMERA
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true
@@ -84,12 +81,10 @@ onAuthStateChanged(auth, async (user) => {
 
     document.getElementById('localVideo').srcObject = stream;
 
-    // 🔥 PUBLICAR
     for (const track of stream.getTracks()) {
       await room.localParticipant.publishTrack(track);
     }
 
-    // 🔥 RECEBER OUTROS
     room.on('trackSubscribed', (track) => {
       if (track.kind === 'video') {
         const mediaStream = new MediaStream([track.mediaStreamTrack]);
@@ -98,7 +93,7 @@ onAuthStateChanged(auth, async (user) => {
     });
 
   } catch (err) {
-    console.error("❌ ERRO:", err);
+    console.error("❌ ERRO REAL:", err);
     alert("Erro ao conectar na live");
   }
 });
