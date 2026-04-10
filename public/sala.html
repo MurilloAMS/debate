@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DEBATE — Ao Vivo</title>
 
-  <!-- ✅ LIVEKIT CORRETO -->
-  <script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
+  <!-- 🔥 LIVEKIT (GARANTIDO) -->
+  <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.min.js"></script>
 
   <style>
     body {
@@ -48,72 +48,76 @@
 <script>
 document.addEventListener("DOMContentLoaded", async () => {
 
+  // 🔥 TESTE CRÍTICO
+  console.log("LiveKit:", window.LiveKit);
+
   try {
-    // 🔥 VERIFICA SE LIVEKIT CARREGOU
+
+    // 🔥 GARANTE QUE CARREGOU
     if (!window.LiveKit) {
       throw new Error("LiveKit não carregou");
     }
 
-    const { auth, onAuthStateChanged } = await import('/firebase.js');
+    // 🔥 PEGA USUÁRIO
+    const user = JSON.parse(localStorage.getItem("user"));
 
-    onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      alert("Você precisa estar logado");
+      location.href = "/login.html";
+      return;
+    }
 
-      if (!user) {
-        alert("Você precisa estar logado");
-        location.href = "/login.html";
-        return;
+    const params = new URLSearchParams(location.search);
+    const roomName = params.get('room') || 'sala1';
+
+    console.log("Entrando na sala:", roomName);
+
+    // 🔥 BUSCA TOKEN DO SEU SERVER
+    const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
+
+    if (!res.ok) {
+      throw new Error("Erro ao buscar token");
+    }
+
+    const data = await res.json();
+
+    console.log("TOKEN DATA:", data);
+
+    if (!data.token || !data.url) {
+      throw new Error("Token inválido");
+    }
+
+    // 🔥 LIVEKIT
+    const room = new window.LiveKit.Room();
+
+    await room.connect(data.url, data.token);
+
+    console.log("✅ Conectado ao LiveKit");
+
+    // 🔥 CÂMERA
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+
+    document.getElementById('localVideo').srcObject = stream;
+
+    // 🔥 ENVIA STREAM
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track);
+    }
+
+    // 🔥 RECEBE OUTROS
+    room.on('trackSubscribed', (track) => {
+      if (track.kind === 'video') {
+        const mediaStream = new MediaStream([track.mediaStreamTrack]);
+        document.getElementById('remoteVideo').srcObject = mediaStream;
       }
-
-      const params = new URLSearchParams(location.search);
-      const roomName = params.get('room') || 'sala1';
-
-      console.log("Entrando na sala:", roomName);
-
-      // 🔥 BUSCA TOKEN
-      const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
-
-      if (!res.ok) {
-        throw new Error("Erro ao buscar token");
-      }
-
-      const data = await res.json();
-
-      if (!data.token || !data.url) {
-        throw new Error("Token inválido");
-      }
-
-      // ✅ USO CORRETO
-      const room = new LiveKit.Room();
-
-      await room.connect(data.url, data.token);
-
-      console.log("✅ Conectado ao LiveKit");
-
-      // 🔥 CAPTURA CÂMERA
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: true
-      });
-
-      document.getElementById('localVideo').srcObject = stream;
-
-      // 🔥 PUBLICA TRACKS
-      for (const track of stream.getTracks()) {
-        await room.localParticipant.publishTrack(track);
-      }
-
-      // 🔥 RECEBE OUTROS
-      room.on('trackSubscribed', (track) => {
-        if (track.kind === 'video') {
-          const mediaStream = new MediaStream([track.mediaStreamTrack]);
-          document.getElementById('remoteVideo').srcObject = mediaStream;
-        }
-      });
-
     });
 
   } catch (err) {
-    console.error("❌ ERRO:", err);
+    console.error("❌ ERRO COMPLETO:", err);
+
     alert("Erro ao conectar na live: " + err.message);
   }
 
