@@ -15,7 +15,6 @@ body {
   overflow: hidden;
 }
 
-/* 🔥 VIDEO FULL */
 video {
   position: fixed;
   width: 100%;
@@ -23,7 +22,6 @@ video {
   object-fit: cover;
 }
 
-/* 🔥 LATERAL (TIKTOK) */
 .side-actions {
   position: fixed;
   right: 10px;
@@ -51,7 +49,6 @@ video {
   cursor: pointer;
 }
 
-/* 🔥 COMENTÁRIOS SUBINDO */
 .comments {
   position: fixed;
   bottom: 80px;
@@ -77,7 +74,6 @@ video {
   100% { transform: translateY(-120px); opacity: 0; }
 }
 
-/* 🔥 INPUT */
 .chat-input {
   position: fixed;
   bottom: 10px;
@@ -102,6 +98,19 @@ video {
   background: red;
   color: white;
 }
+
+/* 🔊 BOTÃO SOM */
+#audioBtn {
+  position: fixed;
+  bottom: 60px;
+  left: 10px;
+  z-index: 20;
+  background: red;
+  color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+}
 </style>
 </head>
 
@@ -110,7 +119,8 @@ video {
 <video id="remoteVideo" autoplay playsinline></video>
 <video id="localVideo" autoplay muted playsinline style="width:120px;height:160px;position:fixed;top:60px;right:10px;border-radius:10px;"></video>
 
-<!-- 🔥 LATERAL -->
+<button id="audioBtn">🔊 Ativar som</button>
+
 <div class="side-actions">
   <div class="action">
     <button id="likeBtn">❤️</button>
@@ -126,10 +136,8 @@ video {
   </div>
 </div>
 
-<!-- 🔥 COMENTÁRIOS -->
 <div class="comments" id="comments"></div>
 
-<!-- 🔥 INPUT -->
 <div class="chat-input">
   <input id="msg" placeholder="Comente..." />
   <button id="send">Enviar</button>
@@ -137,29 +145,39 @@ video {
 
 <script type="module">
 import { Room } from 'https://esm.sh/livekit-client';
-import { auth, onAuthStateChanged } from '/firebase.js';
+import { auth, onAuthStateChanged, db } from '/firebase.js';
+import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 let ws;
 let room;
+let username = "Usuário";
 
 function addComment(text) {
   const el = document.createElement('div');
   el.className = 'comment';
   el.textContent = text;
-
   document.getElementById('comments').appendChild(el);
-
   setTimeout(() => el.remove(), 6000);
 }
 
-// ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) return location.href = "/login.html";
+
+  // 🔥 BUSCAR NOME REAL
+  try {
+    const snap = await getDoc(doc(db, "usuarios", user.uid));
+    if (snap.exists()) {
+      username = snap.data().nome || user.email;
+    } else {
+      username = user.email;
+    }
+  } catch {
+    username = user.email;
+  }
 
   const params = new URLSearchParams(location.search);
   const roomName = params.get('room') || 'sala1';
 
-  // 🔥 WEBSOCKET
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
@@ -168,7 +186,7 @@ onAuthStateChanged(auth, async (user) => {
       type: 'join',
       room: roomName,
       userId: user.uid,
-      username: user.email
+      username: username
     }));
   };
 
@@ -185,14 +203,12 @@ onAuthStateChanged(auth, async (user) => {
     }
   };
 
-  // 🔥 TOKEN
   const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
   const data = await res.json();
 
   room = new Room();
   await room.connect(data.url, data.token);
 
-  // 🔥 CAMERA
   const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
   document.getElementById('localVideo').srcObject = stream;
 
@@ -207,7 +223,6 @@ onAuthStateChanged(auth, async (user) => {
     }
   });
 
-  // ===================== CHAT =====================
   document.getElementById('send').onclick = () => {
     const input = document.getElementById('msg');
     if (!input.value) return;
@@ -220,17 +235,23 @@ onAuthStateChanged(auth, async (user) => {
     input.value = '';
   };
 
-  // ===================== LIKE =====================
   document.getElementById('likeBtn').onclick = () => {
     ws.send(JSON.stringify({ type: 'like' }));
   };
 
-  // ===================== SHARE =====================
   document.getElementById('shareBtn').onclick = () => {
     navigator.clipboard.writeText(window.location.href);
     alert("Link copiado!");
   };
 });
+
+// 🔊 ATIVAR SOM
+document.getElementById('audioBtn').onclick = () => {
+  document.querySelectorAll('video').forEach(v => {
+    v.muted = false;
+    v.play().catch(()=>{});
+  });
+};
 </script>
 
 </body>

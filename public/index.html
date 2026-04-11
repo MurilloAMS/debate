@@ -13,7 +13,7 @@
       color: white;
     }
 
-    /* TOPO */
+    /* 🔥 TOPO */
     .top-bar {
       position: fixed;
       top: 0;
@@ -23,7 +23,8 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 15px;
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.85);
+      box-sizing: border-box;
     }
 
     .logo {
@@ -32,7 +33,33 @@
       font-size: 20px;
     }
 
-    /* CATEGORIAS */
+    .right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      max-width: 50%;
+      overflow: hidden;
+    }
+
+    #username {
+      font-size: 14px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 120px;
+    }
+
+    #logoutBtn {
+      background: red;
+      border: none;
+      color: white;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    /* 🔥 CATEGORIAS */
     .categories {
       margin-top: 60px;
       display: flex;
@@ -47,11 +74,11 @@
       padding: 6px 12px;
       border-radius: 20px;
       white-space: nowrap;
+      font-size: 13px;
     }
 
-    /* FEED */
+    /* 🔥 FEED */
     .feed {
-      margin-top: 10px;
       padding: 10px;
     }
 
@@ -66,6 +93,7 @@
       width: 100%;
       height: 200px;
       object-fit: cover;
+      background: black;
     }
 
     .info {
@@ -80,8 +108,10 @@
       color: white;
       border-radius: 5px;
       cursor: pointer;
+      width: calc(100% - 20px);
     }
 
+    /* 🔥 BOTÃO LIVE */
     #startLiveBtn {
       position: fixed;
       bottom: 20px;
@@ -92,23 +122,26 @@
       padding: 12px 18px;
       border-radius: 30px;
       font-weight: bold;
+      z-index: 999;
+      cursor: pointer;
     }
   </style>
 </head>
 
 <body>
 
-<!-- TOPO -->
+<!-- 🔥 TOPO -->
 <div class="top-bar">
   <div class="logo">DEBATE</div>
 
-  <div>
+  <div class="right">
     <span id="username"></span>
     🔔
+    <button id="logoutBtn">Sair</button>
   </div>
 </div>
 
-<!-- CATEGORIAS -->
+<!-- 🔥 CATEGORIAS -->
 <div class="categories">
   <span>🔥 Em alta</span>
   <span>🎮 Games</span>
@@ -116,10 +149,10 @@
   <span>📈 Negócios</span>
 </div>
 
-<!-- FEED -->
+<!-- 🔥 FEED -->
 <div class="feed" id="feed"></div>
 
-<!-- BOTÃO -->
+<!-- 🔥 BOTÃO -->
 <button id="startLiveBtn">+ Iniciar Debate</button>
 
 <!-- 🔥 AUTH -->
@@ -128,6 +161,7 @@ import { auth, onAuthStateChanged, signOut, db } from '/firebase.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const username = document.getElementById('username');
+const logoutBtn = document.getElementById('logoutBtn');
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -139,7 +173,7 @@ onAuthStateChanged(auth, async (user) => {
     const snap = await getDoc(doc(db, "usuarios", user.uid));
 
     if (snap.exists()) {
-      username.textContent = snap.data().nome;
+      username.textContent = snap.data().nome || "Usuário";
     } else {
       username.textContent = user.email.split('@')[0];
     }
@@ -148,6 +182,12 @@ onAuthStateChanged(auth, async (user) => {
     username.textContent = user.email.split('@')[0];
   }
 });
+
+// 🔥 LOGOUT
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = 'login.html';
+};
 </script>
 
 <!-- 🔥 FEED -->

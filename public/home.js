@@ -6,7 +6,6 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase
 import { Room } from 'https://esm.sh/livekit-client';
 
 const feed = document.getElementById('feed');
-const usernameEl = document.getElementById('username');
 
 let roomsData = [];
 let currentRooms = {};
@@ -16,19 +15,6 @@ onAuthStateChanged(auth, async (user) => {
   if (!user) {
     location.href = 'login.html';
     return;
-  }
-
-  try {
-    const snap = await getDoc(doc(db, "usuarios", user.uid));
-
-    if (snap.exists()) {
-      usernameEl.textContent = snap.data().nome || "Usuário";
-    } else {
-      usernameEl.textContent = user.email.split('@')[0];
-    }
-
-  } catch {
-    usernameEl.textContent = user.email.split('@')[0];
   }
 
   initWebSocket();
@@ -52,9 +38,8 @@ function initWebSocket() {
     }
 
     if (msg.type === 'room-started') {
-
-      // evita duplicar sala
       const exists = roomsData.find(r => r.room === msg.room);
+
       if (!exists) {
         roomsData.unshift({
           room: msg.room,
