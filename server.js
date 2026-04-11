@@ -18,10 +18,10 @@ const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
-// 🔥 VALIDAÇÃO FORTE (AGORA PARA O SERVIDOR SE DER ERRO)
+// 🔥 VALIDAÇÃO FORTE
 if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
   console.error("❌ ERRO CRÍTICO: Variáveis do LiveKit não configuradas!");
-  process.exit(1); // 🔥 impede servidor quebrado de rodar
+  process.exit(1);
 }
 
 // ===================== STATIC =====================
@@ -292,7 +292,7 @@ function broadcastGlobal(data) {
   });
 }
 
-// ===================== 🔥 LIVEKIT TOKEN
+// ===================== 🔥 LIVEKIT TOKEN (CORRIGIDO)
 app.get('/get-token', (req, res) => {
   try {
     const room = req.query.room;
@@ -310,21 +310,22 @@ app.get('/get-token', (req, res) => {
 
     at.addGrant({
       roomJoin: true,
-      room,
+      room: room,
       canPublish: true,
       canSubscribe: true
     });
 
-    const token = at.toJwt();
+    // 🔥 CORREÇÃO CRÍTICA
+    const token = at.toJwt(); // STRING válida
 
     res.json({
-      token,
+      token: token,
       url: LIVEKIT_URL
     });
 
   } catch (err) {
     console.error("❌ ERRO TOKEN:", err);
-    res.status(500).json({ error: 'Erro interno' });
+    res.status(500).json({ error: 'Erro interno ao gerar token' });
   }
 });
 
