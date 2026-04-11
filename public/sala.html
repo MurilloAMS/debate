@@ -44,7 +44,7 @@
 
 <script type="module">
 
-import { Room, createLocalVideoTrack, createLocalAudioTrack } from 'https://esm.sh/livekit-client';
+import { Room } from 'https://esm.sh/livekit-client';
 import { auth, onAuthStateChanged } from '/firebase.js';
 
 onAuthStateChanged(auth, async (user) => {
@@ -73,25 +73,26 @@ onAuthStateChanged(auth, async (user) => {
 
     console.log("✅ Conectado ao LiveKit!");
 
-    // ===================== 🎥 CAMERA CORRETA =====================
-    const videoTrack = await createLocalVideoTrack();
-    const audioTrack = await createLocalAudioTrack();
+    // ===================== 🎥 CAPTURA LOCAL =====================
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
 
-    // Mostrar vídeo local
-    videoTrack.attach(document.getElementById('localVideo'));
+    document.getElementById('localVideo').srcObject = stream;
 
-    // Publicar no LiveKit
-    await room.localParticipant.publishTrack(videoTrack);
-    await room.localParticipant.publishTrack(audioTrack);
+    // ===================== 🚀 PUBLICAR =====================
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track);
+    }
 
     console.log("🎥 Câmera e áudio publicados");
 
     // ===================== 👥 RECEBER OUTROS =====================
-    room.on('trackSubscribed', (track, publication, participant) => {
-      console.log("📡 Recebendo vídeo de:", participant.identity);
-
+    room.on('trackSubscribed', (track) => {
       if (track.kind === 'video') {
-        track.attach(document.getElementById('remoteVideo'));
+        const mediaStream = new MediaStream([track.mediaStreamTrack]);
+        document.getElementById('remoteVideo').srcObject = mediaStream;
       }
     });
 
