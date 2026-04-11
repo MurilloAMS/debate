@@ -292,8 +292,8 @@ function broadcastGlobal(data) {
   });
 }
 
-// ===================== 🔥 LIVEKIT TOKEN (CORRIGIDO)
-app.get('/get-token', (req, res) => {
+// ===================== 🔥 LIVEKIT TOKEN (FINAL)
+app.get('/get-token', async (req, res) => {
   try {
     const room = req.query.room;
     const username = req.query.username || 'user';
@@ -315,11 +315,17 @@ app.get('/get-token', (req, res) => {
       canSubscribe: true
     });
 
-    // 🔥 CORREÇÃO CRÍTICA
-    const token = at.toJwt(); // STRING válida
+    const token = await at.toJwt();
+
+    if (!token || typeof token !== 'string') {
+      console.error("❌ Token inválido:", token);
+      return res.status(500).json({ error: 'Token inválido gerado' });
+    }
+
+    console.log("✅ Token gerado com sucesso");
 
     res.json({
-      token: token,
+      token,
       url: LIVEKIT_URL
     });
 
