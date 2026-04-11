@@ -26,19 +26,16 @@ const salvar = document.getElementById('salvar');
 
 const livesEl = document.getElementById('lives');
 const feedPerfil = document.getElementById('feedPerfil');
-const videosGrid = document.getElementById('videosGrid'); // 🔥 NOVO
+const videosGrid = document.getElementById('videosGrid');
 
-const previewPlayers = {};
-
-const params = new URLSearchParams(location.search);
-const perfilUid = params.get('uid');
-
+// 🔥 REMOVIDO WebRTC antigo
+let rooms = [];
 let currentUser;
 let perfilData;
-let rooms = [];
 
-// 🔥 WEBSOCKET
-const ws = new WebSocket(`ws://${location.host}`);
+// 🔥 WEBSOCKET CORRIGIDO (HTTPS SAFE)
+const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
+const ws = new WebSocket(`${wsProto}://${location.host}`);
 
 ws.onopen = () => {
   ws.send(JSON.stringify({ type: 'get-rooms' }));
@@ -52,15 +49,14 @@ ws.onmessage = (event) => {
     rooms = msg.rooms;
     renderLives();
     renderFeedPerfil();
-    preloadFeedPerfil();
-  }
-
-  if (msg.type === 'preview') {
-    startPreviewPerfil(msg.room, msg.sdp);
   }
 };
 
-// 🔥 LOGIN
+// 🔥 PARAMS
+const params = new URLSearchParams(location.search);
+const perfilUid = params.get('uid');
+
+// ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     location.href = 'login.html';
@@ -82,9 +78,9 @@ onAuthStateChanged(auth, async (user) => {
 
   bioInput.value = perfilData?.bio || '';
 
-  // 🔥 CARREGA REPLAYS
   loadReplays();
 
+  // ===================== FOLLOW =====================
   if (uid !== user.uid) {
     const isFollowing = perfilData?.seguidores?.includes(user.uid);
     followBtn.textContent = isFollowing ? 'Deixar de seguir' : 'Seguir';
@@ -113,13 +109,13 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// 🔥 EDITAR
+// ===================== EDITAR =====================
 editarBtn.onclick = () => {
   editArea.style.display =
     editArea.style.display === 'none' ? 'block' : 'none';
 };
 
-// 🔥 SALVAR BIO
+// ===================== SALVAR BIO =====================
 salvar.onclick = async () => {
   await updateDoc(doc(db, "usuarios", currentUser.uid), {
     bio: bioInput.value
@@ -129,7 +125,7 @@ salvar.onclick = async () => {
   alert('Perfil atualizado!');
 };
 
-// 🔥 FOTO
+// ===================== FOTO =====================
 foto.onclick = () => {
   if (!perfilUid) uploadFoto.click();
 };
@@ -150,10 +146,9 @@ uploadFoto.onchange = async () => {
   foto.src = url;
 };
 
-// 🔥 LIVES
+// ===================== LIVES =====================
 function renderLives() {
   const uid = perfilUid || currentUser.uid;
-
   const userLives = rooms.filter(r => r.hostUid === uid);
 
   livesEl.innerHTML = '';
@@ -177,7 +172,7 @@ function renderLives() {
   });
 }
 
-// 🔥 FEED PERFIL (LIVES)
+// ===================== FEED PERFIL =====================
 function renderFeedPerfil() {
   const uid = perfilUid || currentUser.uid;
   const userRooms = rooms.filter(r => r.hostUid === uid);
@@ -189,10 +184,8 @@ function renderFeedPerfil() {
     div.className = 'feed-item-perfil';
 
     div.innerHTML = `
-      <video autoplay muted playsinline data-room="${roomData.room}"></video>
-
       <div class="feed-overlay">
-        ${roomData.room} • 👥 ${roomData.count}
+        🔴 ${roomData.room} • 👥 ${roomData.count}
       </div>
 
       <button class="enter-btn-perfil">Entrar</button>
@@ -206,48 +199,13 @@ function renderFeedPerfil() {
   });
 }
 
-function preloadFeedPerfil() {
-  const uid = perfilUid || currentUser.uid;
-  const userRooms = rooms.filter(r => r.hostUid === uid);
-
-  userRooms.slice(0, 3).forEach(r => {
-    ws.send(JSON.stringify({
-      type: 'request-preview',
-      room: r.room
-    }));
-  });
-}
-
-async function startPreviewPerfil(room, offer) {
-  if (previewPlayers[room]) return;
-
-  const video = document.querySelector(`video[data-room="${room}"]`);
-  if (!video) return;
-
-  const pc = new RTCPeerConnection({
-    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-  });
-
-  pc.ontrack = (e) => {
-    video.srcObject = e.streams[0];
-  };
-
-  await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-  const answer = await pc.createAnswer();
-  await pc.setLocalDescription(answer);
-
-  previewPlayers[room] = pc;
-}
-
-// 🔥 REPLAYS (NOVO)
+// ===================== REPLAYS =====================
 async function loadReplays() {
   try {
     const res = await fetch('/replays');
     const videos = await res.json();
 
     const uid = perfilUid || currentUser.uid;
-
     const userVideos = videos.filter(v => v.userId === uid);
 
     videosGrid.innerHTML = '';
@@ -275,7 +233,7 @@ async function loadReplays() {
   }
 }
 
-// 🔥 NAVEGAÇÃO
+// ===================== NAVEGAÇÃO =====================
 window.abrirSeguidores = () => {
   location.href = `seguidores.html?uid=${perfilUid || currentUser.uid}`;
 };

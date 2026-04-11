@@ -5,8 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DEBATE</title>
 
-  <link rel="stylesheet" href="/style.css" />
-
   <style>
     body {
       margin: 0;
@@ -48,10 +46,6 @@
       border: 2px solid red;
     }
 
-    #userInfo {
-      font-size: 13px;
-    }
-
     #logoutBtn {
       background: red;
       border: none;
@@ -60,32 +54,6 @@
       border-radius: 6px;
       cursor: pointer;
       font-size: 12px;
-    }
-
-    .categories {
-      position: fixed;
-      top: 50px;
-      width: 100%;
-      display: flex;
-      gap: 10px;
-      overflow-x: auto;
-      padding: 10px;
-      z-index: 1000;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.9), transparent);
-    }
-
-    .categories button {
-      background: rgba(255,255,255,0.1);
-      border: none;
-      color: white;
-      padding: 6px 12px;
-      border-radius: 20px;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-
-    .categories button.active {
-      background: red;
     }
 
     .feed {
@@ -104,6 +72,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
+      background: black;
     }
 
     .overlay {
@@ -111,17 +80,7 @@
       bottom: 80px;
       left: 15px;
       color: white;
-    }
-
-    .live-badge {
-      position: absolute;
-      top: 80px;
-      left: 15px;
-      background: red;
-      padding: 5px 10px;
-      font-size: 12px;
-      border-radius: 5px;
-      color: white;
+      z-index: 2;
     }
 
     .enter-btn {
@@ -134,112 +93,89 @@
       padding: 10px 16px;
       border-radius: 20px;
       cursor: pointer;
+      z-index: 2;
+    }
+
+    #startLiveBtn {
+      position: fixed;
+      bottom: 80px;
+      left: 20px;
+      background: red;
+      color: white;
+      border: none;
+      padding: 12px 18px;
+      border-radius: 30px;
+      font-weight: bold;
+      z-index: 999;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- TOPO -->
-  <div class="top-bar">
-    <div class="logo">DEBATE</div>
+<!-- TOPO -->
+<div class="top-bar">
+  <div class="logo">DEBATE</div>
 
-    <div class="user-box">
-
-      <!-- 🔔 SININHO -->
-      <div class="notification-wrapper" id="notificationIcon">
-        <img src="img/icons8-bell-50.png" />
-        <div class="notification-count" id="notificationCounter" style="display:none;">0</div>
-      </div>
-
-      <!-- LISTA -->
-      <ul id="notificationList" style="
-        display:none;
-        position:absolute;
-        right:10px;
-        top:50px;
-        background:#111;
-        padding:10px;
-        border-radius:10px;
-        list-style:none;
-        width:200px;
-        max-height:300px;
-        overflow-y:auto;
-        z-index:999;
-      "></ul>
-
-      <img id="userPhoto" src="" style="display:none; cursor:pointer;" />
-      <span id="userInfo"></span>
-      <button id="logoutBtn">Sair</button>
-
-    </div>
+  <div class="user-box">
+    <span id="userInfo"></span>
+    <button id="logoutBtn">Sair</button>
   </div>
+</div>
 
-  <!-- CATEGORIAS -->
-  <div class="categories">
-    <button data-cat="all" class="active">Todos</button>
-    <button data-cat="politica">Política</button>
-    <button data-cat="religiao">Religião</button>
-    <button data-cat="futebol">Futebol</button>
-    <button data-cat="tecnologia">Tecnologia</button>
-    <button data-cat="familia">Família</button>
-    <button data-cat="economia">Economia</button>
-  </div>
+<!-- FEED -->
+<main class="feed" id="feed"></main>
 
-  <!-- FEED -->
-  <main class="feed" id="feed"></main>
+<!-- BOTÃO LIVE -->
+<button id="startLiveBtn">+ Iniciar Debate</button>
 
-  <!-- 🔥 AUTH -->
-  <script type="module">
-   import { auth, onAuthStateChanged, signOut, db } from '/firebase.js';
+<!-- 🔥 AUTH -->
+<script type="module">
+import { auth, onAuthStateChanged, signOut, db } from '/firebase.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const userInfo = document.getElementById('userInfo');
+const logoutBtn = document.getElementById('logoutBtn');
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
-    window.location.href = 'login.html';
-  } else {
-    const userSnap = await getDoc(doc(db, "usuarios", user.uid));
+    location.href = 'login.html';
+    return;
+  }
 
-    if (userSnap.exists()) {
-      const data = userSnap.data();
-      userInfo.textContent = data.nome;
+  try {
+    const snap = await getDoc(doc(db, "usuarios", user.uid));
+
+    if (snap.exists()) {
+      userInfo.textContent = snap.data().nome;
     } else {
       userInfo.textContent = user.email;
     }
 
-    if (user.photoURL) {
-      userPhoto.src = user.photoURL;
-      userPhoto.style.display = 'block';
-    }
+  } catch {
+    userInfo.textContent = user.email;
   }
 });
-  </script>
 
-  <!-- FEED -->
-  <script type="module" src="/home.js"></script>
+// 🔥 LOGOUT
+logoutBtn.onclick = async () => {
+  await signOut(auth);
+  location.href = 'login.html';
+};
+</script>
 
-  <button id="startLiveBtn" style="
-  position: fixed;
-  bottom: 80px;
-  left: 20px;
-  background: red;
-  color: white;
-  border: none;
-  padding: 12px 18px;
-  border-radius: 30px;
-  font-weight: bold;
-  z-index: 999;
-">
-  + Iniciar Debate
-</button>
+<!-- 🔥 FEED (LIVEKIT) -->
+<script type="module" src="/home.js"></script>
+
+<!-- 🔥 CRIAR LIVE -->
 <script>
-  document.getElementById('startLiveBtn').onclick = () => {
-    const room = prompt('Nome da sua live:');
+document.getElementById('startLiveBtn').onclick = () => {
+  const room = prompt('Nome da sua live:');
 
-    if (!room) return;
+  if (!room) return;
 
-    location.href = `/sala.html?room=${room}&role=host`;
-  };
+  location.href = `/sala.html?room=${room}&role=host`;
+};
 </script>
 
 </body>

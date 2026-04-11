@@ -44,8 +44,7 @@
 
 <script type="module">
 
-// 🔥 IMPORTAÇÃO CORRIGIDA (ESSA É A CHAVE)
-import { Room } from 'https://esm.sh/livekit-client';
+import { Room, createLocalVideoTrack, createLocalAudioTrack } from 'https://esm.sh/livekit-client';
 import { auth, onAuthStateChanged } from '/firebase.js';
 
 onAuthStateChanged(auth, async (user) => {
@@ -68,33 +67,37 @@ onAuthStateChanged(auth, async (user) => {
       throw new Error("Token inválido");
     }
 
-    const room = new LiveKitRoom();
+    const room = new Room();
 
     await room.connect(data.url, data.token);
 
-    console.log("✅ Conectado!");
+    console.log("✅ Conectado ao LiveKit!");
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
-    });
+    // ===================== 🎥 CAMERA CORRETA =====================
+    const videoTrack = await createLocalVideoTrack();
+    const audioTrack = await createLocalAudioTrack();
 
-    document.getElementById('localVideo').srcObject = stream;
+    // Mostrar vídeo local
+    videoTrack.attach(document.getElementById('localVideo'));
 
-    for (const track of stream.getTracks()) {
-      await room.localParticipant.publishTrack(track);
-    }
+    // Publicar no LiveKit
+    await room.localParticipant.publishTrack(videoTrack);
+    await room.localParticipant.publishTrack(audioTrack);
 
-    room.on('trackSubscribed', (track) => {
+    console.log("🎥 Câmera e áudio publicados");
+
+    // ===================== 👥 RECEBER OUTROS =====================
+    room.on('trackSubscribed', (track, publication, participant) => {
+      console.log("📡 Recebendo vídeo de:", participant.identity);
+
       if (track.kind === 'video') {
-        const mediaStream = new MediaStream([track.mediaStreamTrack]);
-        document.getElementById('remoteVideo').srcObject = mediaStream;
+        track.attach(document.getElementById('remoteVideo'));
       }
     });
 
   } catch (err) {
     console.error("❌ ERRO REAL:", err);
-    alert("Erro ao conectar na live");
+    alert("Erro ao conectar na live: " + err.message);
   }
 });
 

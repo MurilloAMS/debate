@@ -1,4 +1,4 @@
-require('dotenv').config(); // 🔥 IMPORTANTE
+require('dotenv').config();
 
 const { AccessToken } = require('livekit-server-sdk');
 const express = require('express');
@@ -18,14 +18,10 @@ const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
-// 🔥 VALIDAÇÃO (ESSENCIAL)
+// 🔥 VALIDAÇÃO FORTE (AGORA PARA O SERVIDOR SE DER ERRO)
 if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
-  console.error("❌ ERRO: Variáveis do LiveKit não configuradas!");
-  console.log({
-    LIVEKIT_API_KEY,
-    LIVEKIT_API_SECRET,
-    LIVEKIT_URL
-  });
+  console.error("❌ ERRO CRÍTICO: Variáveis do LiveKit não configuradas!");
+  process.exit(1); // 🔥 impede servidor quebrado de rodar
 }
 
 // ===================== STATIC =====================
@@ -56,33 +52,43 @@ function saveDB(data) {
 
 // ===================== UPLOAD LIVE =====================
 app.post('/upload', upload.single('video'), (req, res) => {
-  const file = req.file;
-  const room = req.body.room;
-  const userId = req.body.userId;
+  try {
+    const file = req.file;
+    const room = req.body.room;
+    const userId = req.body.userId;
 
-  const newPath = `uploads/${userId}-${Date.now()}.webm`;
+    if (!file) {
+      return res.status(400).json({ error: 'Arquivo não enviado' });
+    }
 
-  fs.renameSync(file.path, newPath);
+    const newPath = `uploads/${userId}-${Date.now()}.webm`;
 
-  const db = getDB();
+    fs.renameSync(file.path, newPath);
 
-  db.push({
-    id: Date.now().toString(),
-    path: '/' + newPath,
-    room,
-    userId,
-    likes: 0,
-    comments: [],
-    views: 0,
-    watchTime: 0,
-    createdAt: Date.now()
-  });
+    const db = getDB();
 
-  saveDB(db);
+    db.push({
+      id: Date.now().toString(),
+      path: '/' + newPath,
+      room,
+      userId,
+      likes: 0,
+      comments: [],
+      views: 0,
+      watchTime: 0,
+      createdAt: Date.now()
+    });
 
-  console.log('🎥 Live salva:', newPath);
+    saveDB(db);
 
-  res.send({ ok: true });
+    console.log('🎥 Live salva:', newPath);
+
+    res.json({ ok: true });
+
+  } catch (err) {
+    console.error("❌ ERRO UPLOAD:", err);
+    res.status(500).json({ error: 'Erro ao salvar vídeo' });
+  }
 });
 
 // ===================== SERVIR VIDEOS =====================
@@ -156,7 +162,6 @@ wss.on('connection', (ws) => {
 
       broadcastToRoom(ws.roomId, {
         type: 'like-update',
-        room: ws.roomId,
         likes: roomData.likes
       });
 
@@ -166,12 +171,6 @@ wss.on('connection', (ws) => {
     // ===== GET ROOMS =====
     if (msg.type === 'get-rooms') {
       sendRooms(ws);
-      return;
-    }
-
-    // ===== PREVIEW =====
-    if (msg.type === 'preview') {
-      broadcastGlobal(msg);
       return;
     }
 
@@ -205,17 +204,15 @@ wss.on('connection', (ws) => {
 function sendUsers(room) {
   if (!rooms.has(room)) return;
 
-  const roomData = rooms.get(room);
-
   const users = [];
 
-  roomData.clients.forEach(c => {
+  rooms.get(room).clients.forEach(c => {
     users.push({ username: c.username, role: c.role });
   });
 
   const data = JSON.stringify({ type: 'users', users });
 
-  roomData.clients.forEach(c => {
+  rooms.get(room).clients.forEach(c => {
     if (c.readyState === 1) c.send(data);
   });
 }
@@ -234,7 +231,6 @@ function sendRooms(ws) {
       room: roomId,
       count: data.clients.size,
       host: data.hostName,
-      hostUid: data.hostUid,
       likes: data.likes,
       score
     });
@@ -256,16 +252,12 @@ function broadcastRooms() {
       room: roomId,
       count: data.clients.size,
       host: data.hostName,
-      hostUid: data.hostUid,
       likes: data.likes,
       score
     });
   }
 
-  broadcastGlobal({
-    type: 'rooms-list',
-    rooms: list
-  });
+  broadcastGlobal({ type: 'rooms-list', rooms: list });
 }
 
 // ===================== BROADCAST =====================
@@ -318,7 +310,7 @@ app.get('/get-token', (req, res) => {
 
     at.addGrant({
       roomJoin: true,
-      room: room,
+      room,
       canPublish: true,
       canSubscribe: true
     });
@@ -331,7 +323,7 @@ app.get('/get-token', (req, res) => {
     });
 
   } catch (err) {
-    console.error("❌ ERRO AO GERAR TOKEN:", err);
+    console.error("❌ ERRO TOKEN:", err);
     res.status(500).json({ error: 'Erro interno' });
   }
 });
