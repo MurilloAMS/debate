@@ -8,9 +8,10 @@ import { Room } from 'https://esm.sh/livekit-client';
 const feed = document.getElementById('feed');
 
 let roomsData = [];
-let currentRooms = {};
+let activeRooms = {};
 let ws;
 
+// ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     location.href = 'login.html';
@@ -20,6 +21,7 @@ onAuthStateChanged(auth, async (user) => {
   initWebSocket();
 });
 
+// ===================== WEBSOCKET =====================
 function initWebSocket() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
@@ -44,8 +46,7 @@ function initWebSocket() {
         roomsData.unshift({
           room: msg.room,
           host: msg.host,
-          count: 1,
-          likes: 0
+          count: 1
         });
 
         renderFeed();
@@ -54,39 +55,40 @@ function initWebSocket() {
   };
 }
 
+// ===================== FEED TIKTOK =====================
 function renderFeed() {
   feed.innerHTML = '';
 
   roomsData.forEach(room => {
 
-    const div = document.createElement('div');
-    div.className = 'feed-item';
+    const container = document.createElement('div');
+    container.className = 'video-container';
 
-    div.innerHTML = `
+    container.innerHTML = `
       <video autoplay muted playsinline></video>
 
-      <div class="info">
+      <div class="overlay">
         <h3>${room.room}</h3>
         <p>🎤 ${room.host || "Usuário"}</p>
         <p>👥 ${room.count}</p>
       </div>
-
-      <button class="enter">Entrar</button>
     `;
 
-    div.querySelector('.enter').onclick = () => {
+    // 👉 clicar entra na live
+    container.onclick = () => {
       location.href = `sala.html?room=${room.room}`;
     };
 
-    feed.appendChild(div);
+    feed.appendChild(container);
 
-    startPreview(div, room.room);
+    startPreview(container, room.room);
   });
 }
 
+// ===================== PREVIEW =====================
 async function startPreview(container, roomName) {
 
-  if (currentRooms[roomName]) return;
+  if (activeRooms[roomName]) return;
 
   try {
     const video = container.querySelector('video');
@@ -100,7 +102,7 @@ async function startPreview(container, roomName) {
     const room = new Room();
     await room.connect(data.url, data.token);
 
-    currentRooms[roomName] = room;
+    activeRooms[roomName] = room;
 
     room.on('trackSubscribed', (track) => {
       if (track.kind === 'video') {

@@ -11,6 +11,7 @@
       background: black;
       font-family: Arial, sans-serif;
       color: white;
+      overflow: hidden;
     }
 
     /* 🔥 TOPO */
@@ -23,7 +24,7 @@
       justify-content: space-between;
       align-items: center;
       padding: 10px 15px;
-      background: rgba(0,0,0,0.85);
+      background: rgba(0,0,0,0.8);
       box-sizing: border-box;
     }
 
@@ -38,22 +39,21 @@
       align-items: center;
       gap: 10px;
       max-width: 50%;
-      overflow: hidden;
     }
 
     #username {
       font-size: 14px;
-      white-space: nowrap;
+      max-width: 120px;
       overflow: hidden;
       text-overflow: ellipsis;
-      max-width: 120px;
+      white-space: nowrap;
     }
 
     #logoutBtn {
       background: red;
       border: none;
       color: white;
-      padding: 5px 10px;
+      padding: 6px 10px;
       border-radius: 6px;
       cursor: pointer;
       font-size: 12px;
@@ -61,12 +61,15 @@
 
     /* 🔥 CATEGORIAS */
     .categories {
-      margin-top: 60px;
+      position: fixed;
+      top: 50px;
+      width: 100%;
       display: flex;
       gap: 10px;
       padding: 10px;
       overflow-x: auto;
-      background: #111;
+      background: rgba(0,0,0,0.9);
+      z-index: 999;
     }
 
     .categories span {
@@ -77,38 +80,36 @@
       font-size: 13px;
     }
 
-    /* 🔥 FEED */
+    /* 🔥 FEED TIKTOK */
     .feed {
-      padding: 10px;
-    }
-
-    .feed-item {
-      background: #111;
-      border-radius: 10px;
-      margin-bottom: 15px;
-      overflow: hidden;
-    }
-
-    .feed-item video {
+      position: absolute;
+      top: 100px;
+      bottom: 0;
       width: 100%;
-      height: 200px;
+      overflow-y: scroll;
+      scroll-snap-type: y mandatory;
+    }
+
+    .video-container {
+      height: calc(100vh - 100px);
+      position: relative;
+      scroll-snap-align: start;
+    }
+
+    .video-container video {
+      width: 100%;
+      height: 100%;
       object-fit: cover;
       background: black;
     }
 
-    .info {
-      padding: 10px;
-    }
-
-    .enter {
-      margin: 10px;
-      padding: 8px;
-      background: red;
-      border: none;
+    /* 🔥 INFO SOBRE O VIDEO */
+    .overlay {
+      position: absolute;
+      bottom: 80px;
+      left: 15px;
       color: white;
-      border-radius: 5px;
-      cursor: pointer;
-      width: calc(100% - 20px);
+      z-index: 2;
     }
 
     /* 🔥 BOTÃO LIVE */
@@ -122,7 +123,7 @@
       padding: 12px 18px;
       border-radius: 30px;
       font-weight: bold;
-      z-index: 999;
+      z-index: 1000;
       cursor: pointer;
     }
   </style>
@@ -190,10 +191,10 @@ logoutBtn.onclick = async () => {
 };
 </script>
 
-<!-- 🔥 FEED -->
+<!-- 🔥 FEED (TIKTOK) -->
 <script type="module" src="/home.js"></script>
 
-<!-- 🔥 LIVE -->
+<!-- 🔥 CRIAR LIVE -->
 <script>
 document.getElementById('startLiveBtn').onclick = () => {
   const room = prompt('Nome da sua live:');
