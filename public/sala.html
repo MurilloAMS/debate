@@ -55,18 +55,27 @@ onAuthStateChanged(auth, async (user) => {
   }
 
   try {
-    const params = new URLSearchParams(location.search);
+    const params = new URLSearchParams(window.location.search);
     const roomName = params.get('room') || 'sala1';
 
-    console.log("Entrando na sala:", roomName);
+    console.log("🔵 Entrando na sala:", roomName);
 
+    // ===================== 🔥 BUSCAR TOKEN CORRETAMENTE =====================
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
     const data = await res.json();
 
-    if (!data.token || !data.url) {
-      throw new Error("Token inválido");
+    console.log("🔍 RESPOSTA TOKEN:", data);
+
+    // 🚨 VALIDAÇÃO FORTE
+    if (!data.token || typeof data.token !== 'string') {
+      throw new Error("Token inválido ou não é string");
     }
 
+    if (!data.url) {
+      throw new Error("URL do LiveKit inválida");
+    }
+
+    // ===================== 🚀 CONECTAR =====================
     const room = new Room();
 
     await room.connect(data.url, data.token);
@@ -90,10 +99,21 @@ onAuthStateChanged(auth, async (user) => {
 
     // ===================== 👥 RECEBER OUTROS =====================
     room.on('trackSubscribed', (track) => {
+      console.log("📡 Recebendo track:", track.kind);
+
       if (track.kind === 'video') {
         const mediaStream = new MediaStream([track.mediaStreamTrack]);
         document.getElementById('remoteVideo').srcObject = mediaStream;
       }
+    });
+
+    // ===================== 🔄 DEBUG EXTRA =====================
+    room.on('participantConnected', (p) => {
+      console.log("👤 Participante entrou:", p.identity);
+    });
+
+    room.on('participantDisconnected', (p) => {
+      console.log("❌ Participante saiu:", p.identity);
     });
 
   } catch (err) {
