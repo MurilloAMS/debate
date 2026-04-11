@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>DEBATE — Ao Vivo</title>
 
+  <!-- 🔥 REMOVE ERRO DO FAVICON -->
+  <link rel="icon" href="data:,">
+
   <style>
     body {
       margin: 0;
@@ -30,6 +33,24 @@
       object-fit: cover;
       background: black;
     }
+
+    .click-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      cursor: pointer;
+    }
+
+    .click-overlay span {
+      background: red;
+      padding: 15px 25px;
+      border-radius: 8px;
+      font-weight: bold;
+    }
   </style>
 </head>
 
@@ -37,6 +58,11 @@
 
 <div class="top-bar">
   🔴 AO VIVO
+</div>
+
+<!-- 🔥 OVERLAY PARA LIBERAR ÁUDIO -->
+<div class="click-overlay" id="overlay">
+  <span>Toque para entrar na live</span>
 </div>
 
 <video id="localVideo" autoplay muted playsinline></video>
@@ -47,6 +73,19 @@
 import { Room } from 'https://esm.sh/livekit-client';
 import { auth, onAuthStateChanged } from '/firebase.js';
 
+let room;
+
+// 🔥 LIBERA ÁUDIO COM CLIQUE (resolve erro do Chrome)
+document.getElementById('overlay').onclick = async () => {
+  try {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    await audioContext.resume();
+  } catch {}
+
+  document.getElementById('overlay').style.display = 'none';
+};
+
+// ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     alert("Você precisa estar logado");
@@ -60,65 +99,76 @@ onAuthStateChanged(auth, async (user) => {
 
     console.log("🔵 Entrando na sala:", roomName);
 
-    // ===================== 🔥 BUSCAR TOKEN CORRETAMENTE =====================
+    // ===================== 🔥 TOKEN =====================
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
+
+    if (!res.ok) {
+      throw new Error("Erro ao buscar token");
+    }
+
     const data = await res.json();
 
-    console.log("🔍 RESPOSTA TOKEN:", data);
+    console.log("🔍 TOKEN OK");
 
-    // 🚨 VALIDAÇÃO FORTE
     if (!data.token || typeof data.token !== 'string') {
-      throw new Error("Token inválido ou não é string");
+      throw new Error("Token inválido");
     }
 
     if (!data.url) {
-      throw new Error("URL do LiveKit inválida");
+      throw new Error("URL inválida");
     }
 
-    // ===================== 🚀 CONECTAR =====================
-    const room = new Room();
+    // ===================== 🚀 CONEXÃO =====================
+    room = new Room();
 
     await room.connect(data.url, data.token);
 
     console.log("✅ Conectado ao LiveKit!");
 
-    // ===================== 🎥 CAPTURA LOCAL =====================
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: true,
-      audio: true
-    });
+    // ===================== 🎥 CÂMERA =====================
+    let stream;
 
-    document.getElementById('localVideo').srcObject = stream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+
+      document.getElementById('localVideo').srcObject = stream;
+
+    } catch (err) {
+      console.error("❌ ERRO NA CÂMERA:", err);
+      alert("Erro ao acessar câmera/microfone");
+      return;
+    }
 
     // ===================== 🚀 PUBLICAR =====================
     for (const track of stream.getTracks()) {
       await room.localParticipant.publishTrack(track);
     }
 
-    console.log("🎥 Câmera e áudio publicados");
+    console.log("🎥 Publicado");
 
-    // ===================== 👥 RECEBER OUTROS =====================
+    // ===================== 👥 RECEBER =====================
     room.on('trackSubscribed', (track) => {
-      console.log("📡 Recebendo track:", track.kind);
-
       if (track.kind === 'video') {
         const mediaStream = new MediaStream([track.mediaStreamTrack]);
         document.getElementById('remoteVideo').srcObject = mediaStream;
       }
     });
 
-    // ===================== 🔄 DEBUG EXTRA =====================
+    // ===================== DEBUG =====================
     room.on('participantConnected', (p) => {
-      console.log("👤 Participante entrou:", p.identity);
+      console.log("👤 Entrou:", p.identity);
     });
 
     room.on('participantDisconnected', (p) => {
-      console.log("❌ Participante saiu:", p.identity);
+      console.log("❌ Saiu:", p.identity);
     });
 
   } catch (err) {
-    console.error("❌ ERRO REAL:", err);
-    alert("Erro ao conectar na live: " + err.message);
+    console.error("❌ ERRO:", err);
+    alert("Erro ao conectar: " + err.message);
   }
 });
 
