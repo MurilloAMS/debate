@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DEBATE — Feed</title>
+
+<style>
+body {
+  margin: 0;
+  overflow: hidden;
+  background: black;
+  font-family: Arial;
+}
+
+.feed {
+  height: 100vh;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+}
+
+.live {
+  height: 100vh;
+  position: relative;
+  scroll-snap-align: start;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+</style>
+</head>
+
+<body>
+
+<div class="feed" id="feed"></div>
+
+<script type="module">
+import { Room } from 'https://esm.sh/livekit-client';
+import { auth, onAuthStateChanged } from '/firebase.js';
+
+let currentRooms = {};
+
+const feed = document.getElementById('feed');
+
+// ===================== LOGIN =====================
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return location.href = "login.html";
+
+  loadLives(user);
+});
+
+// ===================== BUSCAR LIVES =====================
+async function loadLives(user) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type: 'get-rooms' }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+
+    if (msg.type === 'rooms-list') {
+      renderLives(msg.rooms, user);
+    }
+  };
+}
+
+// ===================== RENDER =====================
+function renderLives(rooms, user) {
+  feed.innerHTML = '';
+
+  rooms.forEach(room => {
+    const div = document.createElement('div');
+    div.className = 'live';
+    div.dataset.room = room.room;
+
+    div.innerHTML = `
+      <video autoplay muted playsinline></video>
+    `;
+
+    feed.appendChild(div);
+  });
+
+  initScroll(user);
+}
+
+// ===================== SCROLL CONTROL =====================
+function initScroll(user) {
+  const items = document.querySelectorAll('.live');
+
+  const observer = new IntersectionObserver(async (entries) => {
+    for (const entry of entries) {
+      const el = entry.target;
+      const roomName = el.dataset.room;
+
+      if (entry.isIntersecting) {
+        startLive(el, roomName, user);
+      } else {
+        stopLive(roomName);
+      }
+    }
+  }, { threshold: 0.8 });
+
+  items.forEach(item => observer.observe(item));
+}
+
+// ===================== START LIVE =====================
+async function startLive(container, roomName, user) {
+  if (currentRooms[roomName]) return;
+
+  try {
+    const video = container.querySelector('video');
+
+    const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
+    const data = await res.json();
+
+    const room = new Room();
+
+    await room.connect(data.url, data.token);
+
+    currentRooms[roomName] = room;
+
+    room.on('trackSubscribed', (track) => {
+      if (track.kind === 'video') {
+        const stream = new MediaStream([track.mediaStreamTrack]);
+        video.srcObject = stream;
+      }
+    });
+
+  } catch (err) {
+    console.log("Erro live:", err);
+  }
+}
+
+// ===================== STOP LIVE =====================
+function stopLive(roomName) {
+  const room = currentRooms[roomName];
+
+  if (room) {
+    room.disconnect();
+    delete currentRooms[roomName];
+  }
+}
+</script>
+
+</body>
+</html>
