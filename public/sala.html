@@ -23,10 +23,23 @@ body {
   object-fit: cover;
 }
 
+/* 🎥 LOCAL (HOST / PARTICIPANTE) */
+#localVideo {
+  position: fixed;
+  top: 60px;
+  right: 10px;
+  width: 120px;
+  height: 160px;
+  border-radius: 10px;
+  object-fit: cover;
+  z-index: 20;
+  border: 2px solid white;
+}
+
 /* 🎥 PARTICIPANTES */
 .participants {
   position: fixed;
-  top: 60px;
+  top: 230px;
   right: 10px;
   display: flex;
   flex-direction: column;
@@ -120,6 +133,7 @@ body {
 <body>
 
 <video id="remoteVideo" autoplay playsinline></video>
+<video id="localVideo" autoplay muted playsinline></video>
 
 <div class="participants" id="participants"></div>
 
@@ -204,7 +218,7 @@ onAuthStateChanged(auth, async (user) => {
       alert("Novo pedido para participar");
     }
 
-    if (msg.type === 'approved') {
+    if (msg.type === 'approved' && msg.userId === user.uid) {
       startPublishing();
     }
   };
@@ -219,15 +233,18 @@ onAuthStateChanged(auth, async (user) => {
   // 🔥 RECEBER VÍDEO
   room.on('trackSubscribed', (track, pub, participant) => {
     if (track.kind === 'video') {
+
       const stream = new MediaStream([track.mediaStreamTrack]);
 
-      if (participant.identity === user.uid) return;
-
+      // 🔥 PRINCIPAL (HOST)
       if (!document.getElementById('remoteVideo').srcObject) {
         document.getElementById('remoteVideo').srcObject = stream;
-      } else {
+      } 
+      // 🔥 PARTICIPANTES
+      else {
         const vid = document.createElement('video');
         vid.autoplay = true;
+        vid.playsInline = true;
         vid.srcObject = stream;
         document.getElementById('participants').appendChild(vid);
       }
@@ -240,22 +257,26 @@ onAuthStateChanged(auth, async (user) => {
     await startPublishing();
   }
 
-  // 🎥 PUBLICAR (CORRIGIDO ÁUDIO)
+  // 🎥 PUBLICAR (CORRIGIDO)
   async function startPublishing() {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true
     });
 
-    // 🔊 desbloqueia áudio no navegador
-    const audio = document.createElement('audio');
-    audio.srcObject = stream;
-    audio.muted = true;
-    await audio.play().catch(()=>{});
+    const localVideo = document.getElementById('localVideo');
 
+    // 🔥 MOSTRAR LOCAL
+    localVideo.srcObject = stream;
+    localVideo.muted = true;
+    await localVideo.play().catch(()=>{});
+
+    // 🔥 PUBLICAR
     for (const track of stream.getTracks()) {
       await room.localParticipant.publishTrack(track);
     }
+
+    console.log("🎥 Publicando câmera...");
   }
 
   // 🙋 PARTICIPAR
