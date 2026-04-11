@@ -18,7 +18,6 @@ const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
-// 🔥 VALIDAÇÃO FORTE
 if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
   console.error("❌ ERRO CRÍTICO: Variáveis do LiveKit não configuradas!");
   process.exit(1);
@@ -153,6 +152,41 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // ===== PEDIR PARA PARTICIPAR =====
+    if (msg.type === 'join-request') {
+      const roomData = rooms.get(ws.roomId);
+      if (!roomData) return;
+
+      // envia só pro host
+      roomData.clients.forEach(c => {
+        if (c.userId === roomData.hostUid) {
+          c.send(JSON.stringify({
+            type: 'join-request',
+            userId: ws.userId,
+            username: ws.username
+          }));
+        }
+      });
+
+      return;
+    }
+
+    // ===== HOST APROVA =====
+    if (msg.type === 'approve-user') {
+      const roomData = rooms.get(ws.roomId);
+      if (!roomData) return;
+
+      roomData.clients.forEach(c => {
+        if (c.userId === msg.userId) {
+          c.send(JSON.stringify({
+            type: 'approved'
+          }));
+        }
+      });
+
+      return;
+    }
+
     // ===== LIKE =====
     if (msg.type === 'like') {
       const roomData = rooms.get(ws.roomId);
@@ -217,7 +251,7 @@ function sendUsers(room) {
   });
 }
 
-// ===================== ROOMS =====================
+// ===================== ROOMS (RANKING AUTOMÁTICO)
 function sendRooms(ws) {
   const list = [];
   const now = Date.now();
@@ -292,7 +326,7 @@ function broadcastGlobal(data) {
   });
 }
 
-// ===================== 🔥 LIVEKIT TOKEN (FINAL)
+// ===================== 🔥 LIVEKIT TOKEN
 app.get('/get-token', async (req, res) => {
   try {
     const room = req.query.room;
@@ -310,19 +344,12 @@ app.get('/get-token', async (req, res) => {
 
     at.addGrant({
       roomJoin: true,
-      room: room,
+      room,
       canPublish: true,
       canSubscribe: true
     });
 
     const token = await at.toJwt();
-
-    if (!token || typeof token !== 'string') {
-      console.error("❌ Token inválido:", token);
-      return res.status(500).json({ error: 'Token inválido gerado' });
-    }
-
-    console.log("✅ Token gerado com sucesso");
 
     res.json({
       token,

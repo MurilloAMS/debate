@@ -15,13 +15,32 @@ body {
   overflow: hidden;
 }
 
-video {
+/* 🎥 VIDEO PRINCIPAL */
+#remoteVideo {
   position: fixed;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+/* 🎥 PARTICIPANTES */
+.participants {
+  position: fixed;
+  top: 60px;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.participants video {
+  width: 120px;
+  height: 160px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+/* 🔥 LATERAL */
 .side-actions {
   position: fixed;
   right: 10px;
@@ -49,24 +68,21 @@ video {
   cursor: pointer;
 }
 
+/* 💬 COMENTÁRIOS */
 .comments {
   position: fixed;
   bottom: 80px;
   left: 10px;
   width: 70%;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  z-index: 10;
 }
 
 .comment {
   background: rgba(0,0,0,0.4);
   padding: 6px 10px;
   border-radius: 10px;
-  color: white;
-  font-size: 14px;
+  margin-top: 5px;
   animation: subir 6s linear forwards;
+  color: white;
 }
 
 @keyframes subir {
@@ -74,6 +90,7 @@ video {
   100% { transform: translateY(-120px); opacity: 0; }
 }
 
+/* INPUT */
 .chat-input {
   position: fixed;
   bottom: 10px;
@@ -81,7 +98,6 @@ video {
   right: 80px;
   display: flex;
   gap: 10px;
-  z-index: 10;
 }
 
 .chat-input input {
@@ -92,24 +108,11 @@ video {
 }
 
 .chat-input button {
-  padding: 10px 15px;
-  border-radius: 20px;
-  border: none;
-  background: red;
-  color: white;
-}
-
-/* 🔊 BOTÃO SOM */
-#audioBtn {
-  position: fixed;
-  bottom: 60px;
-  left: 10px;
-  z-index: 20;
-  background: red;
-  color: white;
-  border: none;
   padding: 10px;
-  border-radius: 10px;
+  border-radius: 20px;
+  background: red;
+  border: none;
+  color: white;
 }
 </style>
 </head>
@@ -117,27 +120,31 @@ video {
 <body>
 
 <video id="remoteVideo" autoplay playsinline></video>
-<video id="localVideo" autoplay muted playsinline style="width:120px;height:160px;position:fixed;top:60px;right:10px;border-radius:10px;"></video>
 
-<button id="audioBtn">🔊 Ativar som</button>
+<div class="participants" id="participants"></div>
 
+<!-- 🔥 LATERAL -->
 <div class="side-actions">
+
   <div class="action">
     <button id="likeBtn">❤️</button>
     <div id="likeCount">0</div>
   </div>
 
   <div class="action">
-    <button>💬</button>
+    <button id="joinBtn">🙋</button>
   </div>
 
-  <div class="action">
-    <button id="shareBtn">🔗</button>
+  <div class="action" id="hostControls" style="display:none;">
+    <button id="approveBtn">➕</button>
   </div>
+
 </div>
 
+<!-- 💬 COMENTÁRIOS -->
 <div class="comments" id="comments"></div>
 
+<!-- INPUT -->
 <div class="chat-input">
   <input id="msg" placeholder="Comente..." />
   <button id="send">Enviar</button>
@@ -145,12 +152,11 @@ video {
 
 <script type="module">
 import { Room } from 'https://esm.sh/livekit-client';
-import { auth, onAuthStateChanged, db } from '/firebase.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { auth, onAuthStateChanged } from '/firebase.js';
 
 let ws;
 let room;
-let username = "Usuário";
+let pendingRequests = [];
 
 function addComment(text) {
   const el = document.createElement('div');
@@ -163,21 +169,11 @@ function addComment(text) {
 onAuthStateChanged(auth, async (user) => {
   if (!user) return location.href = "/login.html";
 
-  // 🔥 BUSCAR NOME REAL
-  try {
-    const snap = await getDoc(doc(db, "usuarios", user.uid));
-    if (snap.exists()) {
-      username = snap.data().nome || user.email;
-    } else {
-      username = user.email;
-    }
-  } catch {
-    username = user.email;
-  }
-
   const params = new URLSearchParams(location.search);
-  const roomName = params.get('room') || 'sala1';
+  const roomName = params.get('room');
+  const role = params.get('role') || 'audience';
 
+  // 🔥 WEBSOCKET
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
@@ -186,7 +182,8 @@ onAuthStateChanged(auth, async (user) => {
       type: 'join',
       room: roomName,
       userId: user.uid,
-      username: username
+      username: user.email,
+      role
     }));
   };
 
@@ -201,28 +198,87 @@ onAuthStateChanged(auth, async (user) => {
     if (msg.type === 'like-update') {
       document.getElementById('likeCount').textContent = msg.likes;
     }
+
+    if (msg.type === 'join-request' && role === 'host') {
+      pendingRequests.push(msg.userId);
+      alert("Novo pedido para participar");
+    }
+
+    if (msg.type === 'approved') {
+      startPublishing();
+    }
   };
 
+  // 🔥 LIVEKIT
   const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
   const data = await res.json();
 
   room = new Room();
   await room.connect(data.url, data.token);
 
-  const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-  document.getElementById('localVideo').srcObject = stream;
-
-  for (const track of stream.getTracks()) {
-    await room.localParticipant.publishTrack(track);
-  }
-
-  room.on('trackSubscribed', (track) => {
+  // 🔥 RECEBER VÍDEO
+  room.on('trackSubscribed', (track, pub, participant) => {
     if (track.kind === 'video') {
       const stream = new MediaStream([track.mediaStreamTrack]);
-      document.getElementById('remoteVideo').srcObject = stream;
+
+      if (participant.identity === user.uid) return;
+
+      if (!document.getElementById('remoteVideo').srcObject) {
+        document.getElementById('remoteVideo').srcObject = stream;
+      } else {
+        const vid = document.createElement('video');
+        vid.autoplay = true;
+        vid.srcObject = stream;
+        document.getElementById('participants').appendChild(vid);
+      }
     }
   });
 
+  // 👑 HOST
+  if (role === 'host') {
+    document.getElementById('hostControls').style.display = 'block';
+    await startPublishing();
+  }
+
+  // 🎥 PUBLICAR (CORRIGIDO ÁUDIO)
+  async function startPublishing() {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
+
+    // 🔊 desbloqueia áudio no navegador
+    const audio = document.createElement('audio');
+    audio.srcObject = stream;
+    audio.muted = true;
+    await audio.play().catch(()=>{});
+
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track);
+    }
+  }
+
+  // 🙋 PARTICIPAR
+  document.getElementById('joinBtn').onclick = () => {
+    ws.send(JSON.stringify({
+      type: 'join-request',
+      userId: user.uid
+    }));
+    alert("Pedido enviado!");
+  };
+
+  // 👑 APROVAR
+  document.getElementById('approveBtn').onclick = () => {
+    const userId = pendingRequests.shift();
+    if (!userId) return alert("Sem pedidos");
+
+    ws.send(JSON.stringify({
+      type: 'approve-user',
+      userId
+    }));
+  };
+
+  // 💬 CHAT
   document.getElementById('send').onclick = () => {
     const input = document.getElementById('msg');
     if (!input.value) return;
@@ -235,23 +291,12 @@ onAuthStateChanged(auth, async (user) => {
     input.value = '';
   };
 
+  // ❤️ LIKE
   document.getElementById('likeBtn').onclick = () => {
     ws.send(JSON.stringify({ type: 'like' }));
   };
 
-  document.getElementById('shareBtn').onclick = () => {
-    navigator.clipboard.writeText(window.location.href);
-    alert("Link copiado!");
-  };
 });
-
-// 🔊 ATIVAR SOM
-document.getElementById('audioBtn').onclick = () => {
-  document.querySelectorAll('video').forEach(v => {
-    v.muted = false;
-    v.play().catch(()=>{});
-  });
-};
 </script>
 
 </body>

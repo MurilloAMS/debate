@@ -1,6 +1,5 @@
 // 🔥 FIREBASE
-import { auth, db, onAuthStateChanged } from '/firebase.js';
-import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { auth, onAuthStateChanged } from '/firebase.js';
 
 // 🔥 LIVEKIT
 import { Room } from 'https://esm.sh/livekit-client';
@@ -10,6 +9,7 @@ const feed = document.getElementById('feed');
 let roomsData = [];
 let activeRooms = {};
 let ws;
+let observer;
 
 // ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
@@ -35,7 +35,7 @@ function initWebSocket() {
     try { msg = JSON.parse(event.data); } catch { return; }
 
     if (msg.type === 'rooms-list') {
-      roomsData = msg.rooms;
+      roomsData = msg.rooms.sort((a, b) => b.score - a.score);
       renderFeed();
     }
 
@@ -46,7 +46,9 @@ function initWebSocket() {
         roomsData.unshift({
           room: msg.room,
           host: msg.host,
-          count: 1
+          count: 1,
+          likes: 0,
+          score: 999 // joga pro topo
         });
 
         renderFeed();
@@ -55,17 +57,23 @@ function initWebSocket() {
   };
 }
 
-// ===================== FEED TIKTOK =====================
+// ===================== FEED =====================
 function renderFeed() {
   feed.innerHTML = '';
+
+  // 🔥 OBSERVER (TikTok autoplay)
+  observer = new IntersectionObserver(handleVisibility, {
+    threshold: 0.7
+  });
 
   roomsData.forEach(room => {
 
     const container = document.createElement('div');
     container.className = 'video-container';
+    container.dataset.room = room.room;
 
     container.innerHTML = `
-      <video autoplay muted playsinline></video>
+      <video muted playsinline></video>
 
       <div class="overlay">
         <h3>${room.room}</h3>
@@ -74,18 +82,36 @@ function renderFeed() {
       </div>
     `;
 
-    // 👉 clicar entra na live
+    // 👉 entrar na live
     container.onclick = () => {
       location.href = `sala.html?room=${room.room}`;
     };
 
     feed.appendChild(container);
 
-    startPreview(container, room.room);
+    observer.observe(container);
   });
 }
 
-// ===================== PREVIEW =====================
+// ===================== AUTO PLAY (TIKTOK) =====================
+function handleVisibility(entries) {
+  entries.forEach(entry => {
+    const container = entry.target;
+    const roomName = container.dataset.room;
+    const video = container.querySelector('video');
+
+    if (entry.isIntersecting) {
+      startPreview(container, roomName);
+      video.play().catch(()=>{});
+    } else {
+      stopPreview(roomName);
+      video.pause();
+      video.srcObject = null;
+    }
+  });
+}
+
+// ===================== START PREVIEW =====================
 async function startPreview(container, roomName) {
 
   if (activeRooms[roomName]) return;
@@ -100,6 +126,7 @@ async function startPreview(container, roomName) {
     if (!data.token) return;
 
     const room = new Room();
+
     await room.connect(data.url, data.token);
 
     activeRooms[roomName] = room;
@@ -114,4 +141,15 @@ async function startPreview(container, roomName) {
   } catch (err) {
     console.log("Erro preview:", err);
   }
+}
+
+// ===================== STOP PREVIEW =====================
+function stopPreview(roomName) {
+  if (!activeRooms[roomName]) return;
+
+  try {
+    activeRooms[roomName].disconnect();
+  } catch {}
+
+  delete activeRooms[roomName];
 }

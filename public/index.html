@@ -19,44 +19,49 @@
       position: fixed;
       top: 0;
       width: 100%;
+      height: 50px;
       z-index: 1000;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 10px 15px;
-      background: rgba(0,0,0,0.8);
+      padding: 0 12px;
+      background: rgba(0,0,0,0.9);
       box-sizing: border-box;
     }
 
     .logo {
       color: red;
       font-weight: bold;
-      font-size: 20px;
+      font-size: 18px;
     }
 
     .right {
       display: flex;
       align-items: center;
-      gap: 10px;
-      max-width: 50%;
+      gap: 8px;
+      max-width: 60%;
     }
 
     #username {
-      font-size: 14px;
-      max-width: 120px;
+      font-size: 13px;
+      max-width: 100px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    .bell {
+      font-size: 16px;
     }
 
     #logoutBtn {
       background: red;
       border: none;
       color: white;
-      padding: 6px 10px;
+      padding: 5px 8px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 12px;
+      font-size: 11px;
     }
 
     /* 🔥 CATEGORIAS */
@@ -64,11 +69,13 @@
       position: fixed;
       top: 50px;
       width: 100%;
+      height: 50px;
       display: flex;
+      align-items: center;
       gap: 10px;
-      padding: 10px;
+      padding: 0 10px;
       overflow-x: auto;
-      background: rgba(0,0,0,0.9);
+      background: rgba(0,0,0,0.95);
       z-index: 999;
     }
 
@@ -77,12 +84,12 @@
       padding: 6px 12px;
       border-radius: 20px;
       white-space: nowrap;
-      font-size: 13px;
+      font-size: 12px;
     }
 
-    /* 🔥 FEED TIKTOK */
+    /* 🔥 FEED */
     .feed {
-      position: absolute;
+      position: fixed;
       top: 100px;
       bottom: 0;
       width: 100%;
@@ -103,28 +110,40 @@
       background: black;
     }
 
-    /* 🔥 INFO SOBRE O VIDEO */
+    /* 🔥 OVERLAY */
     .overlay {
       position: absolute;
       bottom: 80px;
       left: 15px;
       color: white;
       z-index: 2;
+      text-shadow: 0 0 5px black;
+    }
+
+    .overlay h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .overlay p {
+      margin: 2px 0;
+      font-size: 13px;
     }
 
     /* 🔥 BOTÃO LIVE */
     #startLiveBtn {
       position: fixed;
       bottom: 20px;
-      left: 20px;
+      left: 15px;
       background: red;
       color: white;
       border: none;
-      padding: 12px 18px;
+      padding: 10px 16px;
       border-radius: 30px;
       font-weight: bold;
       z-index: 1000;
       cursor: pointer;
+      font-size: 13px;
     }
   </style>
 </head>
@@ -137,7 +156,7 @@
 
   <div class="right">
     <span id="username"></span>
-    🔔
+    <span class="bell">🔔</span>
     <button id="logoutBtn">Sair</button>
   </div>
 </div>
@@ -154,7 +173,7 @@
 <div class="feed" id="feed"></div>
 
 <!-- 🔥 BOTÃO -->
-<button id="startLiveBtn">+ Iniciar Debate</button>
+<button id="startLiveBtn">+ Live</button>
 
 <!-- 🔥 AUTH -->
 <script type="module">
@@ -184,14 +203,13 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
-// 🔥 LOGOUT
 logoutBtn.onclick = async () => {
   await signOut(auth);
   location.href = 'login.html';
 };
 </script>
 
-<!-- 🔥 FEED (TIKTOK) -->
+<!-- 🔥 FEED -->
 <script type="module" src="/home.js"></script>
 
 <!-- 🔥 CRIAR LIVE -->
