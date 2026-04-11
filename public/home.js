@@ -12,20 +12,17 @@ let roomsData = [];
 let currentRooms = {};
 let ws;
 
-// ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
     location.href = 'login.html';
     return;
   }
 
-  // 🔥 MOSTRAR NOME (não email)
   try {
     const snap = await getDoc(doc(db, "usuarios", user.uid));
 
     if (snap.exists()) {
-      const nome = snap.data().nome || "Usuário";
-      usernameEl.textContent = nome;
+      usernameEl.textContent = snap.data().nome || "Usuário";
     } else {
       usernameEl.textContent = user.email.split('@')[0];
     }
@@ -37,7 +34,6 @@ onAuthStateChanged(auth, async (user) => {
   initWebSocket();
 });
 
-// ===================== WEBSOCKET =====================
 function initWebSocket() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
@@ -55,21 +51,24 @@ function initWebSocket() {
       renderFeed();
     }
 
-    // 🔥 ATUALIZA EM TEMPO REAL
     if (msg.type === 'room-started') {
-      roomsData.unshift({
-        room: msg.room,
-        host: msg.host,
-        count: 1,
-        likes: 0
-      });
 
-      renderFeed();
+      // evita duplicar sala
+      const exists = roomsData.find(r => r.room === msg.room);
+      if (!exists) {
+        roomsData.unshift({
+          room: msg.room,
+          host: msg.host,
+          count: 1,
+          likes: 0
+        });
+
+        renderFeed();
+      }
     }
   };
 }
 
-// ===================== FEED =====================
 function renderFeed() {
   feed.innerHTML = '';
 
@@ -100,18 +99,18 @@ function renderFeed() {
   });
 }
 
-// ===================== PREVIEW =====================
 async function startPreview(container, roomName) {
 
   if (currentRooms[roomName]) return;
 
   try {
     const video = container.querySelector('video');
-
     const user = auth.currentUser;
 
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
     const data = await res.json();
+
+    if (!data.token) return;
 
     const room = new Room();
     await room.connect(data.url, data.token);
