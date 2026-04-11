@@ -15,41 +15,26 @@ body {
   overflow: hidden;
 }
 
-/* 🎥 VIDEO PRINCIPAL */
-#remoteVideo {
+/* 🔥 GRID TIKTOK */
+#videoGrid {
   position: fixed;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  display: grid;
 }
 
-/* 🎥 LOCAL (HOST / PARTICIPANTE) */
-#localVideo {
-  position: fixed;
-  top: 60px;
-  right: 10px;
-  width: 120px;
-  height: 160px;
-  border-radius: 10px;
-  object-fit: cover;
-  z-index: 20;
-  border: 2px solid white;
+/* 📺 VIDEO */
+.video-box {
+  width: 100%;
+  height: 100%;
+  position: relative;
 }
 
-/* 🎥 PARTICIPANTES */
-.participants {
-  position: fixed;
-  top: 230px;
-  right: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.participants video {
-  width: 120px;
-  height: 160px;
-  border-radius: 10px;
+.video-box video {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
 }
 
@@ -67,7 +52,6 @@ body {
 .action {
   text-align: center;
   color: white;
-  font-size: 14px;
 }
 
 .action button {
@@ -78,7 +62,6 @@ body {
   height: 55px;
   color: white;
   font-size: 20px;
-  cursor: pointer;
 }
 
 /* 💬 COMENTÁRIOS */
@@ -99,7 +82,7 @@ body {
 }
 
 @keyframes subir {
-  0% { transform: translateY(20px); opacity: 1; }
+  0% { transform: translateY(20px); }
   100% { transform: translateY(-120px); opacity: 0; }
 }
 
@@ -132,14 +115,11 @@ body {
 
 <body>
 
-<video id="remoteVideo" autoplay playsinline></video>
-<video id="localVideo" autoplay muted playsinline></video>
-
-<div class="participants" id="participants"></div>
+<!-- 🔥 GRID -->
+<div id="videoGrid"></div>
 
 <!-- 🔥 LATERAL -->
 <div class="side-actions">
-
   <div class="action">
     <button id="likeBtn">❤️</button>
     <div id="likeCount">0</div>
@@ -152,13 +132,11 @@ body {
   <div class="action" id="hostControls" style="display:none;">
     <button id="approveBtn">➕</button>
   </div>
-
 </div>
 
-<!-- 💬 COMENTÁRIOS -->
+<!-- 💬 -->
 <div class="comments" id="comments"></div>
 
-<!-- INPUT -->
 <div class="chat-input">
   <input id="msg" placeholder="Comente..." />
   <button id="send">Enviar</button>
@@ -172,6 +150,55 @@ let ws;
 let room;
 let pendingRequests = [];
 
+const videoGrid = document.getElementById('videoGrid');
+const videos = {}; // 🔥 controla todos os vídeos
+
+// ===================== GRID DINÂMICO =====================
+function updateLayout() {
+  const total = Object.keys(videos).length;
+
+  if (total === 1) {
+    videoGrid.style.gridTemplateColumns = "1fr";
+  } else if (total === 2) {
+    videoGrid.style.gridTemplateColumns = "1fr 1fr";
+  } else {
+    videoGrid.style.gridTemplateColumns = "1fr 1fr";
+  }
+}
+
+// ===================== ADD VIDEO =====================
+function addVideo(id, track) {
+  if (videos[id]) return;
+
+  const box = document.createElement('div');
+  box.className = 'video-box';
+
+  const video = document.createElement('video');
+  video.autoplay = true;
+  video.playsInline = true;
+
+  const stream = new MediaStream([track.mediaStreamTrack]);
+  video.srcObject = stream;
+
+  box.appendChild(video);
+  videoGrid.appendChild(box);
+
+  videos[id] = box;
+
+  updateLayout();
+}
+
+// ===================== REMOVE VIDEO =====================
+function removeVideo(id) {
+  if (!videos[id]) return;
+
+  videos[id].remove();
+  delete videos[id];
+
+  updateLayout();
+}
+
+// ===================== COMMENTS =====================
 function addComment(text) {
   const el = document.createElement('div');
   el.className = 'comment';
@@ -180,6 +207,7 @@ function addComment(text) {
   setTimeout(() => el.remove(), 6000);
 }
 
+// ===================== INIT =====================
 onAuthStateChanged(auth, async (user) => {
   if (!user) return location.href = "/login.html";
 
@@ -187,7 +215,7 @@ onAuthStateChanged(auth, async (user) => {
   const roomName = params.get('room');
   const role = params.get('role') || 'audience';
 
-  // 🔥 WEBSOCKET
+  // 🔥 WS
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
@@ -205,17 +233,12 @@ onAuthStateChanged(auth, async (user) => {
     let msg;
     try { msg = JSON.parse(event.data); } catch { return; }
 
-    if (msg.type === 'message') {
-      addComment(`${msg.username}: ${msg.text}`);
-    }
-
-    if (msg.type === 'like-update') {
-      document.getElementById('likeCount').textContent = msg.likes;
-    }
+    if (msg.type === 'message') addComment(`${msg.username}: ${msg.text}`);
+    if (msg.type === 'like-update') document.getElementById('likeCount').textContent = msg.likes;
 
     if (msg.type === 'join-request' && role === 'host') {
       pendingRequests.push(msg.userId);
-      alert("Novo pedido para participar");
+      alert("Pedido de participação");
     }
 
     if (msg.type === 'approved' && msg.userId === user.uid) {
@@ -230,25 +253,15 @@ onAuthStateChanged(auth, async (user) => {
   room = new Room();
   await room.connect(data.url, data.token);
 
-  // 🔥 RECEBER VÍDEO
+  // 📡 RECEBER
   room.on('trackSubscribed', (track, pub, participant) => {
     if (track.kind === 'video') {
-
-      const stream = new MediaStream([track.mediaStreamTrack]);
-
-      // 🔥 PRINCIPAL (HOST)
-      if (!document.getElementById('remoteVideo').srcObject) {
-        document.getElementById('remoteVideo').srcObject = stream;
-      } 
-      // 🔥 PARTICIPANTES
-      else {
-        const vid = document.createElement('video');
-        vid.autoplay = true;
-        vid.playsInline = true;
-        vid.srcObject = stream;
-        document.getElementById('participants').appendChild(vid);
-      }
+      addVideo(participant.identity, track);
     }
+  });
+
+  room.on('participantDisconnected', (p) => {
+    removeVideo(p.identity);
   });
 
   // 👑 HOST
@@ -257,38 +270,24 @@ onAuthStateChanged(auth, async (user) => {
     await startPublishing();
   }
 
-  // 🎥 PUBLICAR (CORRIGIDO)
+  // 🎥 PUBLICAR
   async function startPublishing() {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true
     });
 
-    const localVideo = document.getElementById('localVideo');
-
-    // 🔥 MOSTRAR LOCAL
-    localVideo.srcObject = stream;
-    localVideo.muted = true;
-    await localVideo.play().catch(()=>{});
-
-    // 🔥 PUBLICAR
     for (const track of stream.getTracks()) {
       await room.localParticipant.publishTrack(track);
     }
-
-    console.log("🎥 Publicando câmera...");
   }
 
-  // 🙋 PARTICIPAR
+  // 🙋
   document.getElementById('joinBtn').onclick = () => {
-    ws.send(JSON.stringify({
-      type: 'join-request',
-      userId: user.uid
-    }));
-    alert("Pedido enviado!");
+    ws.send(JSON.stringify({ type: 'join-request', userId: user.uid }));
   };
 
-  // 👑 APROVAR
+  // 👑
   document.getElementById('approveBtn').onclick = () => {
     const userId = pendingRequests.shift();
     if (!userId) return alert("Sem pedidos");
@@ -299,7 +298,7 @@ onAuthStateChanged(auth, async (user) => {
     }));
   };
 
-  // 💬 CHAT
+  // 💬
   document.getElementById('send').onclick = () => {
     const input = document.getElementById('msg');
     if (!input.value) return;
@@ -312,7 +311,7 @@ onAuthStateChanged(auth, async (user) => {
     input.value = '';
   };
 
-  // ❤️ LIKE
+  // ❤️
   document.getElementById('likeBtn').onclick = () => {
     ws.send(JSON.stringify({ type: 'like' }));
   };
