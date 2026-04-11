@@ -8,9 +8,9 @@
 <style>
 body {
   margin: 0;
-  overflow: hidden;
   background: black;
   font-family: Arial;
+  overflow: hidden;
 }
 
 .feed {
@@ -30,6 +30,51 @@ video {
   height: 100%;
   object-fit: cover;
 }
+
+/* 🔥 OVERLAY INFO */
+.info {
+  position: absolute;
+  bottom: 80px;
+  left: 10px;
+  color: white;
+  z-index: 10;
+}
+
+/* 🔥 LATERAL */
+.side {
+  position: absolute;
+  right: 10px;
+  bottom: 100px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  z-index: 10;
+}
+
+.btn {
+  width: 55px;
+  height: 55px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
+  font-size: 20px;
+}
+
+/* ❤️ ANIMAÇÃO LIKE */
+.heart {
+  position: absolute;
+  bottom: 120px;
+  right: 40px;
+  color: red;
+  font-size: 24px;
+  animation: subir 1.5s linear forwards;
+}
+
+@keyframes subir {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-150px); opacity: 0; }
+}
 </style>
 </head>
 
@@ -42,17 +87,17 @@ import { Room } from 'https://esm.sh/livekit-client';
 import { auth, onAuthStateChanged } from '/firebase.js';
 
 let currentRooms = {};
+let preloadedRooms = {};
 
 const feed = document.getElementById('feed');
 
-// ===================== LOGIN =====================
+// ================= LOGIN =================
 onAuthStateChanged(auth, async (user) => {
   if (!user) return location.href = "login.html";
-
   loadLives(user);
 });
 
-// ===================== BUSCAR LIVES =====================
+// ================= LOAD =================
 async function loadLives(user) {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   const ws = new WebSocket(`${proto}://${location.host}`);
@@ -65,79 +110,119 @@ async function loadLives(user) {
     const msg = JSON.parse(event.data);
 
     if (msg.type === 'rooms-list') {
-      renderLives(msg.rooms, user);
+      render(msg.rooms, user);
     }
   };
 }
 
-// ===================== RENDER =====================
-function renderLives(rooms, user) {
+// ================= RENDER =================
+function render(rooms, user) {
   feed.innerHTML = '';
 
-  rooms.forEach(room => {
+  rooms.forEach((room, index) => {
     const div = document.createElement('div');
     div.className = 'live';
     div.dataset.room = room.room;
+    div.dataset.index = index;
 
     div.innerHTML = `
       <video autoplay muted playsinline></video>
+
+      <div class="info">
+        <strong>${room.host || "Usuário"}</strong><br>
+        👥 ${room.count}
+      </div>
+
+      <div class="side">
+        <button class="btn like">❤️</button>
+        <button class="btn">💬</button>
+        <button class="btn share">🔗</button>
+      </div>
     `;
+
+    // ❤️ LIKE ANIMAÇÃO
+    div.querySelector('.like').onclick = () => {
+      spawnHeart(div);
+    };
+
+    // 🔗 SHARE
+    div.querySelector('.share').onclick = () => {
+      navigator.clipboard.writeText(window.location.origin + "/sala.html?room=" + room.room);
+      alert("Link copiado!");
+    };
 
     feed.appendChild(div);
   });
 
-  initScroll(user);
+  initObserver(user);
 }
 
-// ===================== SCROLL CONTROL =====================
-function initScroll(user) {
+// ================= OBSERVER =================
+function initObserver(user) {
   const items = document.querySelectorAll('.live');
 
   const observer = new IntersectionObserver(async (entries) => {
     for (const entry of entries) {
       const el = entry.target;
       const roomName = el.dataset.room;
+      const index = Number(el.dataset.index);
 
       if (entry.isIntersecting) {
-        startLive(el, roomName, user);
+        await startLive(el, roomName, user);
+
+        // 🔥 PRELOAD PRÓXIMA
+        const next = document.querySelector(`[data-index="${index+1}"]`);
+        if (next) preload(next.dataset.room, user);
+
       } else {
         stopLive(roomName);
       }
     }
-  }, { threshold: 0.8 });
+  }, { threshold: 0.7 });
 
-  items.forEach(item => observer.observe(item));
+  items.forEach(i => observer.observe(i));
 }
 
-// ===================== START LIVE =====================
+// ================= START =================
 async function startLive(container, roomName, user) {
   if (currentRooms[roomName]) return;
 
-  try {
-    const video = container.querySelector('video');
+  let room = preloadedRooms[roomName];
 
+  if (!room) {
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
     const data = await res.json();
 
-    const room = new Room();
-
+    room = new Room();
     await room.connect(data.url, data.token);
-
-    currentRooms[roomName] = room;
-
-    room.on('trackSubscribed', (track) => {
-      if (track.kind === 'video') {
-        const stream = new MediaStream([track.mediaStreamTrack]);
-        video.srcObject = stream;
-      }
-    });
-
-  } catch (err) {
-    console.log("Erro live:", err);
   }
+
+  currentRooms[roomName] = room;
+
+  const video = container.querySelector('video');
+
+  room.on('trackSubscribed', (track) => {
+    if (track.kind === 'video') {
+      const stream = new MediaStream([track.mediaStreamTrack]);
+      video.srcObject = stream;
+    }
+  });
 }
 
-// ===================== STOP LIVE =====================
+// ================= PRELOAD =================
+async function preload(roomName, user) {
+  if (preloadedRooms[roomName] || currentRooms[roomName]) return;
+
+  const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
+  const data = await res.json();
+
+  const room = new Room();
+  await room.connect(data.url, data.token);
+
+  preloadedRooms[roomName] = room;
+}
+
+// ================= STOP =================
 function stopLive(roomName) {
   const room = currentRooms[roomName];
 
@@ -145,6 +230,17 @@ function stopLive(roomName) {
     room.disconnect();
     delete currentRooms[roomName];
   }
+}
+
+// ================= ❤️ ANIMAÇÃO =================
+function spawnHeart(container) {
+  const heart = document.createElement('div');
+  heart.className = 'heart';
+  heart.innerHTML = '❤️';
+
+  container.appendChild(heart);
+
+  setTimeout(() => heart.remove(), 1500);
 }
 </script>
 
