@@ -20,14 +20,19 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
+  // 🔥 PROTEÇÃO FIRESTORE
   try {
     const userSnap = await getDoc(doc(db, "usuarios", user.uid));
 
     if (userSnap.exists()) {
       followingList = userSnap.data().seguindo || [];
+    } else {
+      followingList = [];
     }
+
   } catch (err) {
-    console.log(err);
+    console.log("Erro ao buscar usuário:", err);
+    followingList = []; // evita quebrar o app
   }
 
   initWebSocket();
@@ -40,6 +45,7 @@ function initWebSocket() {
   ws = new WebSocket(`${proto}://${location.host}`);
 
   ws.onopen = () => {
+    console.log("✅ WebSocket conectado");
     ws.send(JSON.stringify({ type: 'get-rooms' }));
   };
 
@@ -48,7 +54,7 @@ function initWebSocket() {
     try { msg = JSON.parse(event.data); } catch { return; }
 
     if (msg.type === 'rooms-list') {
-      roomsData = msg.rooms.sort((a, b) => b.score - a.score);
+      roomsData = (msg.rooms || []).sort((a, b) => b.score - a.score);
       renderFeed();
     }
 
@@ -56,6 +62,10 @@ function initWebSocket() {
       const el = document.querySelector(`[data-room="${msg.room}"] .likes`);
       if (el) el.textContent = msg.likes;
     }
+  };
+
+  ws.onerror = (err) => {
+    console.log("❌ Erro WebSocket:", err);
   };
 }
 
@@ -92,7 +102,7 @@ function renderFeed() {
 
     feed.appendChild(div);
 
-    // 🔥 INICIAR STREAM
+    // 🔥 PREVIEW
     startLivePreview(roomData.room);
   });
 }
@@ -108,8 +118,21 @@ async function startLivePreview(roomName) {
 
     const user = auth.currentUser;
 
+    if (!user) return;
+
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
+
+    if (!res.ok) {
+      console.log("Erro ao buscar token");
+      return;
+    }
+
     const data = await res.json();
+
+    if (!data.token || !data.url) {
+      console.log("Token inválido");
+      return;
+    }
 
     const room = new Room();
 
