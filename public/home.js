@@ -6,11 +6,10 @@ import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase
 import { Room } from 'https://esm.sh/livekit-client';
 
 const feed = document.getElementById('feed');
+const usernameEl = document.getElementById('username');
 
 let roomsData = [];
-let followingList = [];
-let currentRooms = {}; // salas ativas
-
+let currentRooms = {};
 let ws;
 
 // ===================== LOGIN =====================
@@ -20,19 +19,19 @@ onAuthStateChanged(auth, async (user) => {
     return;
   }
 
-  // 🔥 PROTEÇÃO FIRESTORE
+  // 🔥 MOSTRAR NOME (não email)
   try {
-    const userSnap = await getDoc(doc(db, "usuarios", user.uid));
+    const snap = await getDoc(doc(db, "usuarios", user.uid));
 
-    if (userSnap.exists()) {
-      followingList = userSnap.data().seguindo || [];
+    if (snap.exists()) {
+      const nome = snap.data().nome || "Usuário";
+      usernameEl.textContent = nome;
     } else {
-      followingList = [];
+      usernameEl.textContent = user.email.split('@')[0];
     }
 
-  } catch (err) {
-    console.log("Erro ao buscar usuário:", err);
-    followingList = []; // evita quebrar o app
+  } catch {
+    usernameEl.textContent = user.email.split('@')[0];
   }
 
   initWebSocket();
@@ -41,11 +40,9 @@ onAuthStateChanged(auth, async (user) => {
 // ===================== WEBSOCKET =====================
 function initWebSocket() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-
   ws = new WebSocket(`${proto}://${location.host}`);
 
   ws.onopen = () => {
-    console.log("✅ WebSocket conectado");
     ws.send(JSON.stringify({ type: 'get-rooms' }));
   };
 
@@ -54,18 +51,21 @@ function initWebSocket() {
     try { msg = JSON.parse(event.data); } catch { return; }
 
     if (msg.type === 'rooms-list') {
-      roomsData = (msg.rooms || []).sort((a, b) => b.score - a.score);
+      roomsData = msg.rooms;
       renderFeed();
     }
 
-    if (msg.type === 'like-update') {
-      const el = document.querySelector(`[data-room="${msg.room}"] .likes`);
-      if (el) el.textContent = msg.likes;
-    }
-  };
+    // 🔥 ATUALIZA EM TEMPO REAL
+    if (msg.type === 'room-started') {
+      roomsData.unshift({
+        room: msg.room,
+        host: msg.host,
+        count: 1,
+        likes: 0
+      });
 
-  ws.onerror = (err) => {
-    console.log("❌ Erro WebSocket:", err);
+      renderFeed();
+    }
   };
 }
 
@@ -73,69 +73,47 @@ function initWebSocket() {
 function renderFeed() {
   feed.innerHTML = '';
 
-  roomsData.forEach(roomData => {
+  roomsData.forEach(room => {
 
     const div = document.createElement('div');
     div.className = 'feed-item';
-    div.dataset.room = roomData.room;
 
     div.innerHTML = `
-      <video autoplay muted playsinline data-room="${roomData.room}"></video>
+      <video autoplay muted playsinline></video>
 
-      <div>
-        <h3>${roomData.room}</h3>
-        <p>🎤 ${roomData.host || "Usuário"}</p>
-        <p>👥 ${roomData.count}</p>
+      <div class="info">
+        <h3>${room.room}</h3>
+        <p>🎤 ${room.host || "Usuário"}</p>
+        <p>👥 ${room.count}</p>
       </div>
 
-      <div>
-        ❤️ <span class="likes">${roomData.likes || 0}</span>
-      </div>
-
-      <button class="enter-btn">Entrar</button>
+      <button class="enter">Entrar</button>
     `;
 
-    // 🔥 ENTRAR
-    div.querySelector('.enter-btn').onclick = () => {
-      location.href = `sala.html?room=${roomData.room}&role=audience`;
+    div.querySelector('.enter').onclick = () => {
+      location.href = `sala.html?room=${room.room}`;
     };
 
     feed.appendChild(div);
 
-    // 🔥 PREVIEW
-    startLivePreview(roomData.room);
+    startPreview(div, room.room);
   });
 }
 
-// ===================== LIVEKIT PREVIEW =====================
-async function startLivePreview(roomName) {
+// ===================== PREVIEW =====================
+async function startPreview(container, roomName) {
 
   if (currentRooms[roomName]) return;
 
   try {
-    const video = document.querySelector(`[data-room="${roomName}"]`);
-    if (!video) return;
+    const video = container.querySelector('video');
 
     const user = auth.currentUser;
 
-    if (!user) return;
-
     const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
-
-    if (!res.ok) {
-      console.log("Erro ao buscar token");
-      return;
-    }
-
     const data = await res.json();
 
-    if (!data.token || !data.url) {
-      console.log("Token inválido");
-      return;
-    }
-
     const room = new Room();
-
     await room.connect(data.url, data.token);
 
     currentRooms[roomName] = room;
