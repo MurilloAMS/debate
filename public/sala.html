@@ -301,7 +301,7 @@ onAuthStateChanged(auth, async (user) => {
   };
 
   // 🔥 LIVEKIT
-  const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
+  const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}&role=${role}`);
   const tk = await res.json();
 
   room = new Room();

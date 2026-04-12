@@ -49,19 +49,16 @@ function saveDB(data) {
   fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 }
 
-// ===================== UPLOAD LIVE =====================
+// ===================== UPLOAD =====================
 app.post('/upload', upload.single('video'), (req, res) => {
   try {
     const file = req.file;
     const room = req.body.room;
     const userId = req.body.userId;
 
-    if (!file) {
-      return res.status(400).json({ error: 'Arquivo não enviado' });
-    }
+    if (!file) return res.status(400).json({ error: 'Arquivo não enviado' });
 
     const newPath = `uploads/${userId}-${Date.now()}.webm`;
-
     fs.renameSync(file.path, newPath);
 
     const db = getDB();
@@ -90,7 +87,6 @@ app.post('/upload', upload.single('video'), (req, res) => {
   }
 });
 
-// ===================== SERVIR VIDEOS =====================
 app.use('/uploads', express.static('uploads'));
 
 // ===================== WEBSOCKET =====================
@@ -126,7 +122,8 @@ wss.on('connection', (ws) => {
           hostName: null,
           hostUid: null,
           createdAt: Date.now(),
-          likes: 0
+          likes: 0,
+          isLive: false
         });
       }
 
@@ -134,30 +131,25 @@ wss.on('connection', (ws) => {
       roomData.clients.add(ws);
 
       if (ws.role === 'host') {
-  roomData.hostName = ws.username;
-  roomData.hostUid = ws.userId;
-  roomData.isLive = true; // 🔥 NOVO
+        roomData.hostName = ws.username;
+        roomData.hostUid = ws.userId;
+        roomData.isLive = true;
 
-  console.log(`🔴 Live iniciada: ${room}`);
+        console.log(`🔴 Live iniciada: ${room}`);
 
-  broadcastGlobal({
-    type: 'room-started',
-    room,
-    host: ws.username,
-    hostUid: ws.userId,
-    isLive: true
-  });
-
-  // 🔥 força atualização imediata
-  broadcastRooms();
-}
+        broadcastGlobal({
+          type: 'room-started',
+          room,
+          host: ws.username
+        });
+      }
 
       sendUsers(room);
       broadcastRooms();
       return;
     }
 
-    // ===== PEDIR PARA PARTICIPAR =====
+    // ===== JOIN REQUEST =====
     if (msg.type === 'join-request') {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
@@ -166,16 +158,14 @@ wss.on('connection', (ws) => {
         if (c.userId === roomData.hostUid) {
           c.send(JSON.stringify({
             type: 'join-request',
-            userId: ws.userId,
-            username: ws.username
+            userId: ws.userId
           }));
         }
       });
-
       return;
     }
 
-    // ===== HOST APROVA =====
+    // ===== APPROVE =====
     if (msg.type === 'approve-user') {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
@@ -188,7 +178,6 @@ wss.on('connection', (ws) => {
           }));
         }
       });
-
       return;
     }
 
@@ -229,22 +218,57 @@ wss.on('connection', (ws) => {
       roomData.clients.delete(ws);
 
       if (roomData.clients.size === 0) {
-  roomData.isLive = false;
-
-  setTimeout(() => {
-    if (rooms.has(room) && rooms.get(room).clients.size === 0) {
-      rooms.delete(room);
-      console.log(`❌ Sala encerrada: ${room}`);
-      broadcastRooms();
-    }
-  }, 5000); // 🔥 segura 5 segundos
-}
+        setTimeout(() => {
+          if (rooms.has(room) && rooms.get(room).clients.size === 0) {
+            rooms.delete(room);
+            console.log(`❌ Sala encerrada: ${room}`);
+            broadcastRooms();
+          }
+        }, 3000);
+      }
 
       sendUsers(room);
       broadcastRooms();
     }
   });
 });
+
+// ===================== ROOMS =====================
+function sendRooms(ws) {
+  const list = [];
+
+  for (const [roomId, data] of rooms.entries()) {
+    if (!data.isLive) continue;
+
+    list.push({
+      room: roomId,
+      count: data.clients.size,
+      host: data.hostName,
+      likes: data.likes,
+      score: data.clients.size
+    });
+  }
+
+  ws.send(JSON.stringify({ type: 'rooms-list', rooms: list }));
+}
+
+function broadcastRooms() {
+  const list = [];
+
+  for (const [roomId, data] of rooms.entries()) {
+    if (!data.isLive) continue;
+
+    list.push({
+      room: roomId,
+      count: data.clients.size,
+      host: data.hostName,
+      likes: data.likes,
+      score: data.clients.size
+    });
+  }
+
+  broadcastGlobal({ type: 'rooms-list', rooms: list });
+}
 
 // ===================== USERS =====================
 function sendUsers(room) {
@@ -261,52 +285,6 @@ function sendUsers(room) {
   rooms.get(room).clients.forEach(c => {
     if (c.readyState === 1) c.send(data);
   });
-}
-
-// ===================== ROOMS =====================
-function sendRooms(ws) {
-  const list = [];
-  const now = Date.now();
-
-  for (const [roomId, data] of rooms.entries()) {
-
-  // 🔥 só envia salas realmente ativas
-  if (!data.isLive) continue;
-    const score =
-      (data.clients.size * 2) +
-      Math.floor((now - data.createdAt) / 10000);
-
-    list.push({
-      room: roomId,
-      count: data.clients.size,
-      host: data.hostName,
-      likes: data.likes,
-      score
-    });
-  }
-
-  ws.send(JSON.stringify({ type: 'rooms-list', rooms: list }));
-}
-
-function broadcastRooms() {
-  const list = [];
-  const now = Date.now();
-
-  for (const [roomId, data] of rooms.entries()) {
-    const score =
-      (data.clients.size * 2) +
-      Math.floor((now - data.createdAt) / 10000);
-
-    list.push({
-      room: roomId,
-      count: data.clients.size,
-      host: data.hostName,
-      likes: data.likes,
-      score
-    });
-  }
-
-  broadcastGlobal({ type: 'rooms-list', rooms: list });
 }
 
 // ===================== BROADCAST =====================
@@ -335,13 +313,11 @@ function broadcastGlobal(data) {
   const json = JSON.stringify(data);
 
   wss.clients.forEach(c => {
-    if (c.readyState === 1) {
-      c.send(json);
-    }
+    if (c.readyState === 1) c.send(json);
   });
 }
 
-// ===================== 🔥 TOKEN (CORRIGIDO)
+// ===================== 🔥 TOKEN FINAL (CORRIGIDO)
 app.get('/get-token', async (req, res) => {
   try {
     const room = req.query.room;
@@ -358,12 +334,13 @@ app.get('/get-token', async (req, res) => {
       { identity: username }
     );
 
-    // 🔥 CORREÇÃO CRÍTICA AQUI
+    const isHost = role === 'host';
+
     at.addGrant({
       roomJoin: true,
-      room,
-      canPublish: role === 'host', // 👈 só host transmite
-      canSubscribe: true          // 👈 todos assistem
+      room: room,
+      canPublish: isHost,
+      canSubscribe: true
     });
 
     const token = await at.toJwt();
