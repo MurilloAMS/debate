@@ -29,12 +29,26 @@ function initWebSocket() {
   let interval;
 
   ws.onopen = () => {
-    ws.send(JSON.stringify({ type: 'get-rooms' }));
+  console.log("✅ WS conectado");
 
-    interval = setInterval(() => {
-      ws.send(JSON.stringify({ type: 'get-rooms' }));
-    }, 3000);
-  };
+  // 🔥 busca imediata
+  ws.send(JSON.stringify({ type: 'get-rooms' }));
+
+  // 🔥 segunda tentativa rápida (resolve timing)
+  setTimeout(() => {
+    ws.send(JSON.stringify({ type: 'get-rooms' }));
+  }, 1000);
+
+  // 🔥 terceira tentativa
+  setTimeout(() => {
+    ws.send(JSON.stringify({ type: 'get-rooms' }));
+  }, 2000);
+
+  // 🔥 loop contínuo
+  interval = setInterval(() => {
+    ws.send(JSON.stringify({ type: 'get-rooms' }));
+  }, 3000);
+};
 
   ws.onclose = () => {
     clearInterval(interval);
@@ -164,3 +178,6 @@ function stopPreview(roomName) {
 
   delete activeRooms[roomName];
 }
+window.addEventListener('focus', () => {
+  ws.send(JSON.stringify({ type: 'get-rooms' }));
+});

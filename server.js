@@ -140,11 +140,15 @@ wss.on('connection', (ws) => {
         console.log(`🔴 Live iniciada: ${room}`);
 
         broadcastGlobal({
-          type: 'room-started',
-          room,
-          host: ws.username,
-          hostUid: ws.userId
-        });
+  type: 'room-started',
+  room,
+  host: ws.username,
+  hostUid: ws.userId,
+  timestamp: Date.now()
+});
+
+// 🔥 FORÇA atualização global
+broadcastRooms();
       }
 
       sendUsers(room);
