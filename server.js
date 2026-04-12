@@ -134,22 +134,23 @@ wss.on('connection', (ws) => {
       roomData.clients.add(ws);
 
       if (ws.role === 'host') {
-        roomData.hostName = ws.username;
-        roomData.hostUid = ws.userId;
+  roomData.hostName = ws.username;
+  roomData.hostUid = ws.userId;
+  roomData.isLive = true; // 🔥 NOVO
 
-        console.log(`🔴 Live iniciada: ${room}`);
+  console.log(`🔴 Live iniciada: ${room}`);
 
-        broadcastGlobal({
-  type: 'room-started',
-  room,
-  host: ws.username,
-  hostUid: ws.userId,
-  timestamp: Date.now()
-});
+  broadcastGlobal({
+    type: 'room-started',
+    room,
+    host: ws.username,
+    hostUid: ws.userId,
+    isLive: true
+  });
 
-// 🔥 FORÇA atualização global
-broadcastRooms();
-      }
+  // 🔥 força atualização imediata
+  broadcastRooms();
+}
 
       sendUsers(room);
       broadcastRooms();
@@ -228,9 +229,16 @@ broadcastRooms();
       roomData.clients.delete(ws);
 
       if (roomData.clients.size === 0) {
-        console.log(`❌ Sala encerrada: ${room}`);
-        rooms.delete(room);
-      }
+  roomData.isLive = false;
+
+  setTimeout(() => {
+    if (rooms.has(room) && rooms.get(room).clients.size === 0) {
+      rooms.delete(room);
+      console.log(`❌ Sala encerrada: ${room}`);
+      broadcastRooms();
+    }
+  }, 5000); // 🔥 segura 5 segundos
+}
 
       sendUsers(room);
       broadcastRooms();
@@ -261,6 +269,9 @@ function sendRooms(ws) {
   const now = Date.now();
 
   for (const [roomId, data] of rooms.entries()) {
+
+  // 🔥 só envia salas realmente ativas
+  if (!data.isLive) continue;
     const score =
       (data.clients.size * 2) +
       Math.floor((now - data.createdAt) / 10000);
