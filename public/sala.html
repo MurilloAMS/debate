@@ -8,6 +8,7 @@
 <style>
 body { margin:0; background:black; font-family:Arial; overflow:hidden; }
 
+/* 🎥 GRID */
 #videoGrid {
   position: fixed;
   inset: 0;
@@ -20,32 +21,99 @@ body { margin:0; background:black; font-family:Arial; overflow:hidden; }
   object-fit: cover;
 }
 
+/* ❤️ CORAÇÃO GIGANTE */
+#bigHeart {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0);
+  font-size: 100px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 999;
+}
+
+.bigHeartShow {
+  animation: bigHeartAnim 0.6s ease;
+}
+
+@keyframes bigHeartAnim {
+  0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+  50% { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+  100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
+/* UI */
 .ui {
   position: fixed;
   inset: 0;
   z-index: 10;
 }
 
+/* 🔥 BOTÕES */
 .side-actions {
   position: absolute;
   right: 12px;
-  bottom: 110px;
+  bottom: 120px;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 22px;
+  align-items: center;
+}
+
+.action {
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
 .action button {
-  width: 58px;
-  height: 58px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: none;
   background: rgba(255,255,255,0.08);
+  backdrop-filter: blur(12px);
   color: white;
-  font-size: 24px;
+  font-size: 26px;
+  cursor: pointer;
+  transition: all 0.2s ease;
 }
 
+.action button:active {
+  transform: scale(0.85);
+}
+
+.liked {
+  color: red !important;
+  transform: scale(1.1);
+}
+
+.action span {
+  font-size: 12px;
+  color: #ddd;
+}
+
+/* ❤️ CORAÇÕES */
+.hearts {
+  position: absolute;
+  right: 20px;
+  bottom: 160px;
+  pointer-events: none;
+}
+
+.heart {
+  position: absolute;
+  font-size: 22px;
+  animation: floatUp 1.8s ease-out forwards;
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-200px) scale(1.6); opacity: 0; }
+}
+
+/* CHAT */
 .chat-input {
   position: absolute;
   bottom: 10px;
@@ -75,16 +143,30 @@ body { margin:0; background:black; font-family:Arial; overflow:hidden; }
 <body>
 
 <div id="videoGrid"></div>
+<div id="bigHeart">❤️</div>
 
 <div class="ui">
 
   <div class="side-actions">
-    <button id="likeBtn">❤️</button>
-    <span id="likeCount">0</span>
 
-    <button id="joinBtn">🙋</button>
-    <button id="approveBtn" style="display:none;">➕</button>
+    <div class="action">
+      <button id="likeBtn">❤️</button>
+      <span id="likeCount">0</span>
+    </div>
+
+    <div class="action">
+      <button id="joinBtn">🙋</button>
+      <span>Participar</span>
+    </div>
+
+    <div class="action">
+      <button id="approveBtn" style="display:none;">➕</button>
+      <span>Convidar</span>
+    </div>
+
   </div>
+
+  <div class="hearts" id="hearts"></div>
 
   <div class="chat-input">
     <input id="msg" placeholder="Comente..." />
@@ -102,14 +184,20 @@ let ws;
 let pendingRequests = [];
 
 const videoGrid = document.getElementById('videoGrid');
-const videos = {};
+const likeBtn = document.getElementById('likeBtn');
+const likeCount = document.getElementById('likeCount');
+const hearts = document.getElementById('hearts');
 
+let videos = {};
+
+// 🎥 adicionar vídeo
 function addVideo(id, stream, isLocal = false) {
   if (videos[id]) return;
 
   const box = document.createElement('div');
-  const video = document.createElement('video');
+  box.className = 'video-box';
 
+  const video = document.createElement('video');
   video.autoplay = true;
   video.playsInline = true;
   video.srcObject = stream;
@@ -120,10 +208,39 @@ function addVideo(id, stream, isLocal = false) {
   videoGrid.appendChild(box);
 
   videos[id] = true;
-
-  video.play().catch(()=>{});
 }
 
+// ❤️ coração pequeno
+function spawnHeart() {
+  const heart = document.createElement('div');
+  heart.className = 'heart';
+  heart.innerText = '❤️';
+  heart.style.left = Math.random() * 20 + 'px';
+
+  hearts.appendChild(heart);
+  setTimeout(() => heart.remove(), 1800);
+}
+
+// ❤️ EXPLOSÃO COMPLETA
+function triggerLikeExplosion() {
+
+  ws.send(JSON.stringify({ type: 'like' }));
+
+  likeBtn.classList.add('liked');
+
+  if (navigator.vibrate) navigator.vibrate(50);
+
+  const bigHeart = document.getElementById('bigHeart');
+  bigHeart.classList.add('bigHeartShow');
+
+  setTimeout(() => bigHeart.classList.remove('bigHeartShow'), 600);
+
+  for (let i = 0; i < 8; i++) spawnHeart();
+
+  setTimeout(() => likeBtn.classList.remove('liked'), 400);
+}
+
+// 🎥 TRACKS
 function handleTrack(track, participant, user) {
 
   if (track.kind === 'video') {
@@ -135,12 +252,7 @@ function handleTrack(track, participant, user) {
     const audio = document.createElement('audio');
     audio.srcObject = new MediaStream([track.mediaStreamTrack]);
     audio.autoplay = true;
-
-    // 🔥 evita eco
-    if (participant.identity === user.uid) {
-      audio.muted = true;
-    }
-
+    if (participant.identity === user.uid) audio.muted = true;
     audio.play().catch(()=>{});
   }
 }
@@ -153,7 +265,7 @@ onAuthStateChanged(auth, async (user) => {
   const roomName = params.get('room');
   const role = params.get('role') || 'audience';
 
-  // ================= WS =================
+  // WS
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
@@ -172,7 +284,8 @@ onAuthStateChanged(auth, async (user) => {
     try { data = JSON.parse(event.data); } catch { return; }
 
     if (data.type === 'like-update') {
-      document.getElementById('likeCount').textContent = data.likes;
+      likeCount.textContent = data.likes;
+      spawnHeart();
     }
 
     if (data.type === 'approved' && data.userId === user.uid) {
@@ -180,41 +293,29 @@ onAuthStateChanged(auth, async (user) => {
     }
   };
 
-  // ================= LIVEKIT =================
+  // LIVEKIT
   const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}&role=${role}`);
   const tk = await res.json();
 
   room = new Room();
-
   await room.connect(tk.url, tk.token);
 
-  console.log("🔥 conectado como:", role);
-
-  // 🔥 TRACKS NOVOS
   room.on('trackSubscribed', (track, pub, participant) => {
     handleTrack(track, participant, user);
   });
 
-  // 🔥 TRACKS EXISTENTES (CORRIGIDO)
   room.remoteParticipants.forEach(participant => {
-
     participant.trackPublications.forEach(pub => {
-      if (pub.track) {
-        handleTrack(pub.track, participant, user);
-      }
+      if (pub.track) handleTrack(pub.track, participant, user);
     });
-
   });
 
-  // ================= HOST =================
   if (role === 'host') {
     document.getElementById('approveBtn').style.display = 'block';
     await startPublishing();
   }
 
-  // ================= PUBLICAR =================
   async function startPublishing() {
-
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true
@@ -225,30 +326,27 @@ onAuthStateChanged(auth, async (user) => {
     for (const track of stream.getTracks()) {
       await room.localParticipant.publishTrack(track);
     }
-
-    console.log("🎥 transmissão OK");
   }
 
-  // ================= BOTÕES =================
-  document.getElementById('likeBtn').onclick = () => {
-    ws.send(JSON.stringify({ type: 'like' }));
-  };
-
-  document.getElementById('send').onclick = () => {
-    const input = document.getElementById('msg');
-    if (!input.value) return;
-
-    ws.send(JSON.stringify({
-      type: 'message',
-      text: input.value
-    }));
-
-    input.value = '';
-  };
+  // ❤️ botão
+  likeBtn.onclick = triggerLikeExplosion;
 
 });
 
-// 🔥 CORRIGE ERRO DO AUDIO (IMPORTANTE)
+// 🔥 DOUBLE TAP
+let lastTap = 0;
+
+videoGrid.addEventListener('touchend', () => {
+  const now = Date.now();
+
+  if (now - lastTap < 300) {
+    triggerLikeExplosion();
+  }
+
+  lastTap = now;
+});
+
+// 🔥 liberar áudio
 document.body.addEventListener('click', () => {
   const ctx = new (window.AudioContext || window.webkitAudioContext)();
   ctx.resume();
