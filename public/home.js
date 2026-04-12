@@ -29,26 +29,22 @@ function initWebSocket() {
   let interval;
 
   ws.onopen = () => {
-  console.log("✅ WS conectado");
+    console.log("✅ WS conectado");
 
-  // 🔥 busca imediata
-  ws.send(JSON.stringify({ type: 'get-rooms' }));
-
-  // 🔥 segunda tentativa rápida (resolve timing)
-  setTimeout(() => {
     ws.send(JSON.stringify({ type: 'get-rooms' }));
-  }, 1000);
 
-  // 🔥 terceira tentativa
-  setTimeout(() => {
-    ws.send(JSON.stringify({ type: 'get-rooms' }));
-  }, 2000);
+    setTimeout(() => {
+      ws.send(JSON.stringify({ type: 'get-rooms' }));
+    }, 1000);
 
-  // 🔥 loop contínuo
-  interval = setInterval(() => {
-    ws.send(JSON.stringify({ type: 'get-rooms' }));
-  }, 3000);
-};
+    setTimeout(() => {
+      ws.send(JSON.stringify({ type: 'get-rooms' }));
+    }, 2000);
+
+    interval = setInterval(() => {
+      ws.send(JSON.stringify({ type: 'get-rooms' }));
+    }, 3000);
+  };
 
   ws.onclose = () => {
     clearInterval(interval);
@@ -58,11 +54,31 @@ function initWebSocket() {
     let msg;
     try { msg = JSON.parse(event.data); } catch { return; }
 
+    // ===================== ROOMS LIST (CORRIGIDO)
     if (msg.type === 'rooms-list') {
-      roomsData = msg.rooms.sort((a, b) => b.score - a.score);
+
+      const incoming = msg.rooms;
+
+      incoming.forEach(room => {
+        const exists = roomsData.find(r => r.room === room.room);
+
+        if (exists) {
+          Object.assign(exists, room);
+        } else {
+          roomsData.push(room);
+        }
+      });
+
+      // 🔥 remove salas inválidas
+      roomsData = roomsData.filter(r => r.count > 0);
+
+      // 🔥 ordena por score
+      roomsData.sort((a, b) => (b.score || 0) - (a.score || 0));
+
       renderFeed();
     }
 
+    // ===================== NOVA LIVE
     if (msg.type === 'room-started') {
       const exists = roomsData.find(r => r.room === msg.room);
 
@@ -76,7 +92,7 @@ function initWebSocket() {
         });
       }
 
-      renderFeed(); // 🔥 força atualização sempre
+      renderFeed();
     }
   };
 }
@@ -85,7 +101,9 @@ function initWebSocket() {
 function renderFeed() {
   feed.innerHTML = '';
 
-  // 🔥 OBSERVER (único e correto)
+  // 🔥 evita múltiplos observers bugando
+  if (observer) observer.disconnect();
+
   observer = new IntersectionObserver(handleVisibility, {
     threshold: 0.7
   });
@@ -106,7 +124,7 @@ function renderFeed() {
       </div>
     `;
 
-    // 👉 entrar na live (só clicando no vídeo)
+    // 👉 entrar na live (somente clicando no vídeo)
     container.addEventListener('click', (e) => {
       if (e.target.tagName === 'VIDEO') {
         location.href = `sala.html?room=${room.room}`;
@@ -115,7 +133,7 @@ function renderFeed() {
 
     feed.appendChild(container);
 
-    observer.observe(container); // 👈 correto (observa o container)
+    observer.observe(container);
   });
 }
 
@@ -178,6 +196,10 @@ function stopPreview(roomName) {
 
   delete activeRooms[roomName];
 }
+
+// ===================== FOCO (ATUALIZA FEED)
 window.addEventListener('focus', () => {
-  ws.send(JSON.stringify({ type: 'get-rooms' }));
+  if (ws && ws.readyState === 1) {
+    ws.send(JSON.stringify({ type: 'get-rooms' }));
+  }
 });
