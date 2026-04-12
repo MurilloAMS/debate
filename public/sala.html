@@ -15,6 +15,7 @@ body {
   overflow: hidden;
 }
 
+/* 🎥 GRID */
 #videoGrid {
   position: fixed;
   inset: 0;
@@ -22,12 +23,14 @@ body {
   z-index: 1;
 }
 
+/* 🎥 VIDEO */
 .video-box video {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
+/* 🔥 UI */
 .ui {
   position: fixed;
   inset: 0;
@@ -35,6 +38,7 @@ body {
   pointer-events: none;
 }
 
+/* 🔥 BOTÕES */
 .side-actions {
   position: absolute;
   right: 12px;
@@ -61,6 +65,7 @@ body {
   backdrop-filter: blur(10px);
   color: white;
   font-size: 24px;
+  cursor: pointer;
 }
 
 .action span {
@@ -68,22 +73,27 @@ body {
   color: #ddd;
 }
 
+/* ❤️ CORAÇÕES */
 .hearts {
   position: absolute;
   right: 20px;
   bottom: 150px;
+  pointer-events: none;
 }
 
 .heart {
   position: absolute;
   color: red;
+  font-size: 20px;
   animation: floatUp 2s linear forwards;
 }
 
 @keyframes floatUp {
+  0% { transform: translateY(0); opacity: 1; }
   100% { transform: translateY(-200px); opacity: 0; }
 }
 
+/* 💬 COMENTÁRIOS */
 .comments {
   position: absolute;
   bottom: 80px;
@@ -93,12 +103,23 @@ body {
 
 .comment {
   background: rgba(0,0,0,0.5);
-  padding: 6px;
-  border-radius: 10px;
-  margin-top: 5px;
+  padding: 6px 10px;
+  border-radius: 12px;
+  margin-top: 6px;
   color: white;
+  animation: subir 6s linear forwards;
 }
 
+.comment strong {
+  color: #00ffcc;
+}
+
+@keyframes subir {
+  0% { transform: translateY(20px); }
+  100% { transform: translateY(-120px); opacity: 0; }
+}
+
+/* INPUT */
 .chat-input {
   position: absolute;
   bottom: 10px;
@@ -114,12 +135,14 @@ body {
   padding: 10px;
   border-radius: 20px;
   border: none;
+  background: rgba(255,255,255,0.1);
+  color: white;
 }
 
 .chat-input button {
-  padding: 10px;
+  padding: 10px 15px;
   border-radius: 20px;
-  background: red;
+  background: #ff2d2d;
   border: none;
   color: white;
 }
@@ -152,6 +175,7 @@ body {
   </div>
 
   <div class="hearts" id="hearts"></div>
+
   <div class="comments" id="comments"></div>
 
   <div class="chat-input">
@@ -165,7 +189,13 @@ body {
 import { Room } from 'https://esm.sh/livekit-client';
 import { auth, onAuthStateChanged } from '/firebase.js';
 
+let room;
+let ws;
+let pendingRequests = [];
+
 const videoGrid = document.getElementById('videoGrid');
+const videos = {};
+
 const likeBtn = document.getElementById('likeBtn');
 const likeCount = document.getElementById('likeCount');
 const joinBtn = document.getElementById('joinBtn');
@@ -175,17 +205,20 @@ const msg = document.getElementById('msg');
 const comments = document.getElementById('comments');
 const hearts = document.getElementById('hearts');
 
-let room;
-let ws;
-let pendingRequests = {};
-const videos = {};
+// 🎥 layout
+function updateLayout() {
+  const total = Object.keys(videos).length;
+  videoGrid.style.gridTemplateColumns = total <= 1 ? "1fr" : "1fr 1fr";
+}
 
-function addVideo(id, stream, isLocal=false) {
+// 🎥 adicionar vídeo
+function addVideo(id, stream, isLocal = false) {
   if (videos[id]) return;
 
   const box = document.createElement('div');
-  const video = document.createElement('video');
+  box.className = 'video-box';
 
+  const video = document.createElement('video');
   video.autoplay = true;
   video.playsInline = true;
   video.srcObject = stream;
@@ -195,111 +228,170 @@ function addVideo(id, stream, isLocal=false) {
   box.appendChild(video);
   videoGrid.appendChild(box);
 
-  videos[id] = video;
+  videos[id] = box;
+
+  video.play().catch(()=>{});
+  updateLayout();
 }
 
+// ❤️ coração
+function spawnHeart() {
+  const heart = document.createElement('div');
+  heart.className = 'heart';
+  heart.innerText = '❤️';
+  heart.style.left = Math.random() * 20 + 'px';
+
+  hearts.appendChild(heart);
+  setTimeout(() => heart.remove(), 2000);
+}
+
+// 💬 comentário
 function addComment(user, text) {
   const el = document.createElement('div');
   el.className = 'comment';
   el.innerHTML = `<strong>${user}</strong>: ${text}`;
   comments.appendChild(el);
-  setTimeout(()=>el.remove(),5000);
+  setTimeout(() => el.remove(), 6000);
 }
 
-function spawnHeart() {
-  const h = document.createElement('div');
-  h.className = 'heart';
-  h.innerText = '❤️';
-  h.style.left = Math.random()*20+'px';
-  hearts.appendChild(h);
-  setTimeout(()=>h.remove(),2000);
-}
-
-onAuthStateChanged(auth, async (user)=>{
-  if(!user) return location.href="/login.html";
+onAuthStateChanged(auth, async (user) => {
+  if (!user) return location.href = "/login.html";
 
   const params = new URLSearchParams(location.search);
   const roomName = params.get('room');
   const role = params.get('role') || 'audience';
 
-  // WS
-  const proto = location.protocol==='https:'?'wss':'ws';
+  // 🔥 WS
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
-  ws.onopen=()=>{
+  ws.onopen = () => {
     ws.send(JSON.stringify({
-      type:'join',
-      room:roomName,
-      userId:user.uid,
-      username:user.email,
+      type: 'join',
+      room: roomName,
+      userId: user.uid,
+      username: user.uid,
       role
     }));
   };
 
-  ws.onmessage=(e)=>{
-    let m;
-    try{m=JSON.parse(e.data)}catch{return}
+  ws.onmessage = (event) => {
+    let data;
+    try { data = JSON.parse(event.data); } catch { return; }
 
-    if(m.type==='message') addComment(m.username,m.text);
-    if(m.type==='like-update'){likeCount.textContent=m.likes;spawnHeart();}
+    if (data.type === 'message') addComment(data.username, data.text);
 
-    if(m.type==='join-request' && role==='host'){
-      pendingRequests[m.userId]=true;
+    if (data.type === 'like-update') {
+      likeCount.textContent = data.likes;
+      spawnHeart();
     }
 
-    if(m.type==='approved' && m.userId===user.uid){
-      startCamera();
+    if (data.type === 'join-request' && role === 'host') {
+      pendingRequests.push(data.userId);
+      alert("Pedido para entrar");
+    }
+
+    if (data.type === 'approved' && data.userId === user.uid) {
+      startPublishing();
     }
   };
 
-  // LIVEKIT
+  // 🔥 LIVEKIT
   const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
-  const data = await res.json();
+  const tk = await res.json();
 
-  room = new Room();
-  await room.connect(data.url,data.token);
+  room = new Room({
+    adaptiveStream: true,
+    dynacast: true
+  });
 
-  room.on('trackSubscribed',(track,_,participant)=>{
-    if(track.kind==='video'){
-      addVideo(participant.identity,new MediaStream([track.mediaStreamTrack]));
+  await room.connect(tk.url, tk.token);
+
+  // 🔥 TRACKS
+  room.on('trackSubscribed', (track, pub, participant) => {
+    if (track.kind === 'video') {
+      const stream = new MediaStream([track.mediaStreamTrack]);
+      addVideo(participant.identity + '_' + track.sid, stream);
     }
-    if(track.kind==='audio'){
+
+    if (track.kind === 'audio') {
       const audio = document.createElement('audio');
-      audio.srcObject=new MediaStream([track.mediaStreamTrack]);
-      audio.autoplay=true;
+      audio.srcObject = new MediaStream([track.mediaStreamTrack]);
+      audio.autoplay = true;
+      audio.playsInline = true;
+      audio.play().catch(()=>{});
     }
   });
 
-  if(role==='host'){
-    approveBtn.style.display='block';
-    startCamera();
+  // 🔥 PARTICIPANTES EXISTENTES
+  room.remoteParticipants.forEach(p => {
+    p.tracks.forEach(pub => {
+      if (pub.isSubscribed && pub.track) {
+        const track = pub.track;
+
+        if (track.kind === 'video') {
+          const stream = new MediaStream([track.mediaStreamTrack]);
+          addVideo(p.identity + '_' + track.sid, stream);
+        }
+      }
+    });
+  });
+
+  // 👑 HOST
+  if (role === 'host') {
+    approveBtn.style.display = 'block';
+    await startPublishing();
   }
 
-  async function startCamera(){
-    const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:true});
-    addVideo('self',stream,true);
+  // 🎥 PUBLICAR
+  async function startPublishing() {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: true,
+      audio: true
+    });
 
-    for(const track of stream.getTracks()){
+    addVideo("self", stream, true);
+
+    for (const track of stream.getTracks()) {
       await room.localParticipant.publishTrack(track);
     }
   }
 
-  likeBtn.onclick=()=>ws.send(JSON.stringify({type:'like'}));
-  send.onclick=()=>{
-    if(!msg.value) return;
-    ws.send(JSON.stringify({type:'message',text:msg.value}));
-    msg.value='';
+  // ❤️ LIKE
+  likeBtn.onclick = () => {
+    ws.send(JSON.stringify({ type: 'like' }));
+    spawnHeart();
   };
 
-  joinBtn.onclick=()=>{
-    ws.send(JSON.stringify({type:'join-request',userId:user.uid}));
+  // 💬 CHAT
+  send.onclick = () => {
+    if (!msg.value) return;
+
+    ws.send(JSON.stringify({
+      type: 'message',
+      text: msg.value
+    }));
+
+    msg.value = '';
   };
 
-  approveBtn.onclick=()=>{
-    const id=Object.keys(pendingRequests)[0];
-    if(!id) return;
-    delete pendingRequests[id];
-    ws.send(JSON.stringify({type:'approve-user',userId:id}));
+  // 🙋 PARTICIPAR
+  joinBtn.onclick = () => {
+    ws.send(JSON.stringify({
+      type: 'join-request',
+      userId: user.uid
+    }));
+  };
+
+  // 👑 APROVAR
+  approveBtn.onclick = () => {
+    const userId = pendingRequests.shift();
+    if (!userId) return;
+
+    ws.send(JSON.stringify({
+      type: 'approve-user',
+      userId
+    }));
   };
 
 });
