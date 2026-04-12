@@ -5,21 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>DEBATE — Live</title>
 
-<link rel="icon" href="data:,">
-
 <style>
-body {
-  margin: 0;
-  background: black;
-  font-family: Arial;
-  overflow: hidden;
-}
+body { margin:0; background:black; font-family:Arial; overflow:hidden; }
 
 #videoGrid {
   position: fixed;
   inset: 0;
   display: grid;
-  z-index: 1;
 }
 
 .video-box video {
@@ -32,7 +24,6 @@ body {
   position: fixed;
   inset: 0;
   z-index: 10;
-  pointer-events: auto;
 }
 
 .side-actions {
@@ -45,69 +36,14 @@ body {
   align-items: center;
 }
 
-.action {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .action button {
   width: 58px;
   height: 58px;
   border-radius: 50%;
   border: none;
   background: rgba(255,255,255,0.08);
-  backdrop-filter: blur(10px);
   color: white;
   font-size: 24px;
-}
-
-.action span {
-  font-size: 12px;
-  color: #ddd;
-}
-
-.hearts {
-  position: absolute;
-  right: 20px;
-  bottom: 150px;
-}
-
-.heart {
-  position: absolute;
-  color: red;
-  font-size: 20px;
-  animation: floatUp 2s linear forwards;
-}
-
-@keyframes floatUp {
-  0% { transform: translateY(0); opacity: 1; }
-  100% { transform: translateY(-200px); opacity: 0; }
-}
-
-.comments {
-  position: absolute;
-  bottom: 80px;
-  left: 10px;
-  width: 70%;
-}
-
-.comment {
-  background: rgba(0,0,0,0.5);
-  padding: 6px 10px;
-  border-radius: 12px;
-  margin-top: 6px;
-  color: white;
-  animation: subir 6s linear forwards;
-}
-
-.comment strong {
-  color: #00ffcc;
-}
-
-@keyframes subir {
-  0% { transform: translateY(20px); }
-  100% { transform: translateY(-120px); opacity: 0; }
 }
 
 .chat-input {
@@ -124,16 +60,14 @@ body {
   padding: 10px;
   border-radius: 20px;
   border: none;
-  background: rgba(255,255,255,0.1);
-  color: white;
 }
 
 .chat-input button {
-  padding: 10px 15px;
-  border-radius: 20px;
-  background: #ff2d2d;
-  border: none;
+  background: red;
   color: white;
+  border: none;
+  padding: 10px;
+  border-radius: 20px;
 }
 </style>
 </head>
@@ -145,26 +79,12 @@ body {
 <div class="ui">
 
   <div class="side-actions">
+    <button id="likeBtn">❤️</button>
+    <span id="likeCount">0</span>
 
-    <div class="action">
-      <button id="likeBtn">❤️</button>
-      <span id="likeCount">0</span>
-    </div>
-
-    <div class="action">
-      <button id="joinBtn">🙋</button>
-      <span>Participar</span>
-    </div>
-
-    <div class="action">
-      <button id="approveBtn" style="display:none;">➕</button>
-      <span>Convidar</span>
-    </div>
-
+    <button id="joinBtn">🙋</button>
+    <button id="approveBtn" style="display:none;">➕</button>
   </div>
-
-  <div class="hearts" id="hearts"></div>
-  <div class="comments" id="comments"></div>
 
   <div class="chat-input">
     <input id="msg" placeholder="Comente..." />
@@ -184,29 +104,12 @@ let pendingRequests = [];
 const videoGrid = document.getElementById('videoGrid');
 const videos = {};
 
-const likeBtn = document.getElementById('likeBtn');
-const likeCount = document.getElementById('likeCount');
-const joinBtn = document.getElementById('joinBtn');
-const approveBtn = document.getElementById('approveBtn');
-const send = document.getElementById('send');
-const msg = document.getElementById('msg');
-const comments = document.getElementById('comments');
-const hearts = document.getElementById('hearts');
-
-// 🎥 layout
-function updateLayout() {
-  const total = Object.keys(videos).length;
-  videoGrid.style.gridTemplateColumns = total <= 1 ? "1fr" : "1fr 1fr";
-}
-
-// 🎥 adicionar vídeo
 function addVideo(id, stream, isLocal = false) {
   if (videos[id]) return;
 
   const box = document.createElement('div');
-  box.className = 'video-box';
-
   const video = document.createElement('video');
+
   video.autoplay = true;
   video.playsInline = true;
   video.srcObject = stream;
@@ -216,57 +119,41 @@ function addVideo(id, stream, isLocal = false) {
   box.appendChild(video);
   videoGrid.appendChild(box);
 
-  videos[id] = box;
+  videos[id] = true;
 
   video.play().catch(()=>{});
-  updateLayout();
 }
 
-// ❤️ coração
-function spawnHeart() {
-  const heart = document.createElement('div');
-  heart.className = 'heart';
-  heart.innerText = '❤️';
-  heart.style.left = Math.random() * 20 + 'px';
-
-  hearts.appendChild(heart);
-  setTimeout(() => heart.remove(), 2000);
-}
-
-// 💬 comentário
-function addComment(user, text) {
-  const el = document.createElement('div');
-  el.className = 'comment';
-  el.innerHTML = `<strong>${user}</strong>: ${text}`;
-  comments.appendChild(el);
-  setTimeout(() => el.remove(), 6000);
-}
-
-// 🔥 TRACK HANDLER
 function handleTrack(track, participant, user) {
 
   if (track.kind === 'video') {
     const stream = new MediaStream([track.mediaStreamTrack]);
-    addVideo(participant.identity + '_' + track.sid, stream);
+    addVideo(participant.identity + track.sid, stream);
   }
 
   if (track.kind === 'audio') {
     const audio = document.createElement('audio');
     audio.srcObject = new MediaStream([track.mediaStreamTrack]);
     audio.autoplay = true;
-    audio.muted = participant.identity === user.uid;
+
+    // 🔥 evita eco
+    if (participant.identity === user.uid) {
+      audio.muted = true;
+    }
+
     audio.play().catch(()=>{});
   }
 }
 
 onAuthStateChanged(auth, async (user) => {
+
   if (!user) return location.href = "/login.html";
 
   const params = new URLSearchParams(location.search);
   const roomName = params.get('room');
   const role = params.get('role') || 'audience';
 
-  // 🔥 WS
+  // ================= WS =================
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
@@ -284,15 +171,8 @@ onAuthStateChanged(auth, async (user) => {
     let data;
     try { data = JSON.parse(event.data); } catch { return; }
 
-    if (data.type === 'message') addComment(data.username, data.text);
-
     if (data.type === 'like-update') {
-      likeCount.textContent = data.likes;
-      spawnHeart();
-    }
-
-    if (data.type === 'join-request' && role === 'host') {
-      pendingRequests.push(data.userId);
+      document.getElementById('likeCount').textContent = data.likes;
     }
 
     if (data.type === 'approved' && data.userId === user.uid) {
@@ -300,37 +180,41 @@ onAuthStateChanged(auth, async (user) => {
     }
   };
 
-  // 🔥 LIVEKIT
+  // ================= LIVEKIT =================
   const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}&role=${role}`);
   const tk = await res.json();
 
   room = new Room();
+
   await room.connect(tk.url, tk.token);
 
   console.log("🔥 conectado como:", role);
 
-  // 🔥 TRACKS
+  // 🔥 TRACKS NOVOS
   room.on('trackSubscribed', (track, pub, participant) => {
     handleTrack(track, participant, user);
   });
 
-  // 🔥 TRACKS EXISTENTES
+  // 🔥 TRACKS EXISTENTES (CORRIGIDO)
   room.remoteParticipants.forEach(participant => {
-    participant.tracks.forEach(pub => {
-      if (pub.isSubscribed && pub.track) {
+
+    participant.trackPublications.forEach(pub => {
+      if (pub.track) {
         handleTrack(pub.track, participant, user);
       }
     });
+
   });
 
-  // 👑 HOST
+  // ================= HOST =================
   if (role === 'host') {
-    approveBtn.style.display = 'block';
+    document.getElementById('approveBtn').style.display = 'block';
     await startPublishing();
   }
 
-  // 🎥 PUBLICAR (CORREÇÃO FINAL)
+  // ================= PUBLICAR =================
   async function startPublishing() {
+
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
       audio: true
@@ -338,45 +222,38 @@ onAuthStateChanged(auth, async (user) => {
 
     addVideo("self", stream, true);
 
-    await room.localParticipant.enableCameraAndMicrophone();
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track);
+    }
 
-    console.log("🎥 transmissão iniciada");
+    console.log("🎥 transmissão OK");
   }
 
-  likeBtn.onclick = () => {
+  // ================= BOTÕES =================
+  document.getElementById('likeBtn').onclick = () => {
     ws.send(JSON.stringify({ type: 'like' }));
-    spawnHeart();
   };
 
-  send.onclick = () => {
-    if (!msg.value) return;
+  document.getElementById('send').onclick = () => {
+    const input = document.getElementById('msg');
+    if (!input.value) return;
 
     ws.send(JSON.stringify({
       type: 'message',
-      text: msg.value
+      text: input.value
     }));
 
-    msg.value = '';
-  };
-
-  joinBtn.onclick = () => {
-    ws.send(JSON.stringify({
-      type: 'join-request',
-      userId: user.uid
-    }));
-  };
-
-  approveBtn.onclick = () => {
-    const userId = pendingRequests.shift();
-    if (!userId) return;
-
-    ws.send(JSON.stringify({
-      type: 'approve-user',
-      userId
-    }));
+    input.value = '';
   };
 
 });
+
+// 🔥 CORRIGE ERRO DO AUDIO (IMPORTANTE)
+document.body.addEventListener('click', () => {
+  const ctx = new (window.AudioContext || window.webkitAudioContext)();
+  ctx.resume();
+}, { once: true });
+
 </script>
 
 </body>
