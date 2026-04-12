@@ -157,7 +157,6 @@ wss.on('connection', (ws) => {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
 
-      // envia só pro host
       roomData.clients.forEach(c => {
         if (c.userId === roomData.hostUid) {
           c.send(JSON.stringify({
@@ -179,7 +178,8 @@ wss.on('connection', (ws) => {
       roomData.clients.forEach(c => {
         if (c.userId === msg.userId) {
           c.send(JSON.stringify({
-            type: 'approved'
+            type: 'approved',
+            userId: msg.userId
           }));
         }
       });
@@ -251,7 +251,7 @@ function sendUsers(room) {
   });
 }
 
-// ===================== ROOMS (RANKING AUTOMÁTICO)
+// ===================== ROOMS =====================
 function sendRooms(ws) {
   const list = [];
   const now = Date.now();
@@ -326,11 +326,12 @@ function broadcastGlobal(data) {
   });
 }
 
-// ===================== 🔥 LIVEKIT TOKEN
+// ===================== 🔥 TOKEN (CORRIGIDO)
 app.get('/get-token', async (req, res) => {
   try {
     const room = req.query.room;
     const username = req.query.username || 'user';
+    const role = req.query.role || 'audience';
 
     if (!room) {
       return res.status(400).json({ error: 'Room não informado' });
@@ -342,11 +343,12 @@ app.get('/get-token', async (req, res) => {
       { identity: username }
     );
 
+    // 🔥 CORREÇÃO CRÍTICA AQUI
     at.addGrant({
       roomJoin: true,
       room,
-      canPublish: true,
-      canSubscribe: true
+      canPublish: role === 'host', // 👈 só host transmite
+      canSubscribe: true          // 👈 todos assistem
     });
 
     const token = await at.toJwt();
