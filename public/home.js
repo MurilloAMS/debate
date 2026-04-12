@@ -26,8 +26,18 @@ function initWebSocket() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
+  let interval;
+
   ws.onopen = () => {
     ws.send(JSON.stringify({ type: 'get-rooms' }));
+
+    interval = setInterval(() => {
+      ws.send(JSON.stringify({ type: 'get-rooms' }));
+    }, 3000);
+  };
+
+  ws.onclose = () => {
+    clearInterval(interval);
   };
 
   ws.onmessage = (event) => {
@@ -48,11 +58,11 @@ function initWebSocket() {
           host: msg.host,
           count: 1,
           likes: 0,
-          score: 999 // joga pro topo
+          score: 999
         });
-
-        renderFeed();
       }
+
+      renderFeed(); // 🔥 força atualização sempre
     }
   };
 }
@@ -61,7 +71,7 @@ function initWebSocket() {
 function renderFeed() {
   feed.innerHTML = '';
 
-  // 🔥 OBSERVER (TikTok autoplay)
+  // 🔥 OBSERVER (único e correto)
   observer = new IntersectionObserver(handleVisibility, {
     threshold: 0.7
   });
@@ -82,18 +92,20 @@ function renderFeed() {
       </div>
     `;
 
-    // 👉 entrar na live
-    container.onclick = () => {
-      location.href = `sala.html?room=${room.room}`;
-    };
+    // 👉 entrar na live (só clicando no vídeo)
+    container.addEventListener('click', (e) => {
+      if (e.target.tagName === 'VIDEO') {
+        location.href = `sala.html?room=${room.room}`;
+      }
+    });
 
     feed.appendChild(container);
 
-    observer.observe(container);
+    observer.observe(container); // 👈 correto (observa o container)
   });
 }
 
-// ===================== AUTO PLAY (TIKTOK) =====================
+// ===================== AUTO PLAY =====================
 function handleVisibility(entries) {
   entries.forEach(entry => {
     const container = entry.target;
@@ -126,7 +138,6 @@ async function startPreview(container, roomName) {
     if (!data.token) return;
 
     const room = new Room();
-
     await room.connect(data.url, data.token);
 
     activeRooms[roomName] = room;

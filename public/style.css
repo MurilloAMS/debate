@@ -536,3 +536,10 @@ video {
   border: none;
   border-radius: 5px;
 }
+.feed {
+  scroll-snap-type: y mandatory;
+}
+
+.video-container {
+  scroll-snap-align: start;
+}

@@ -126,7 +126,7 @@ function render(rooms, user) {
     div.dataset.index = index;
 
     div.innerHTML = `
-      <video autoplay muted playsinline></video>
+      <video muted playsinline></video>
 
       <div class="info">
         <strong>${room.host || "Usuário"}</strong><br>
@@ -200,6 +200,7 @@ async function startLive(container, roomName, user) {
   currentRooms[roomName] = room;
 
   const video = container.querySelector('video');
+  observer.observe(video);
 
   room.on('trackSubscribed', (track) => {
     if (track.kind === 'video') {
