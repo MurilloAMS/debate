@@ -15,7 +15,6 @@ body {
   overflow: hidden;
 }
 
-/* 🎥 GRID */
 #videoGrid {
   position: fixed;
   inset: 0;
@@ -23,14 +22,12 @@ body {
   z-index: 1;
 }
 
-/* 🎥 VIDEO */
 .video-box video {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-/* 🔥 UI */
 .ui {
   position: fixed;
   inset: 0;
@@ -38,7 +35,6 @@ body {
   pointer-events: auto;
 }
 
-/* 🔥 BOTÕES */
 .side-actions {
   position: absolute;
   right: 12px;
@@ -47,7 +43,6 @@ body {
   flex-direction: column;
   gap: 18px;
   align-items: center;
-  pointer-events: auto;
 }
 
 .action {
@@ -65,7 +60,6 @@ body {
   backdrop-filter: blur(10px);
   color: white;
   font-size: 24px;
-  cursor: pointer;
 }
 
 .action span {
@@ -73,12 +67,10 @@ body {
   color: #ddd;
 }
 
-/* ❤️ CORAÇÕES */
 .hearts {
   position: absolute;
   right: 20px;
   bottom: 150px;
-  pointer-events: none;
 }
 
 .heart {
@@ -93,7 +85,6 @@ body {
   100% { transform: translateY(-200px); opacity: 0; }
 }
 
-/* 💬 COMENTÁRIOS */
 .comments {
   position: absolute;
   bottom: 80px;
@@ -119,7 +110,6 @@ body {
   100% { transform: translateY(-120px); opacity: 0; }
 }
 
-/* INPUT */
 .chat-input {
   position: absolute;
   bottom: 10px;
@@ -127,7 +117,6 @@ body {
   right: 80px;
   display: flex;
   gap: 10px;
-  pointer-events: auto;
 }
 
 .chat-input input {
@@ -175,7 +164,6 @@ body {
   </div>
 
   <div class="hearts" id="hearts"></div>
-
   <div class="comments" id="comments"></div>
 
   <div class="chat-input">
@@ -254,6 +242,23 @@ function addComment(user, text) {
   setTimeout(() => el.remove(), 6000);
 }
 
+// 🔥 TRACK HANDLER (CORREÇÃO PRINCIPAL)
+function handleTrack(track, participant, user) {
+
+  if (track.kind === 'video') {
+    const stream = new MediaStream([track.mediaStreamTrack]);
+    addVideo(participant.identity + '_' + track.sid, stream);
+  }
+
+  if (track.kind === 'audio') {
+    const audio = document.createElement('audio');
+    audio.srcObject = new MediaStream([track.mediaStreamTrack]);
+    audio.autoplay = true;
+    audio.muted = participant.identity === user.uid;
+    audio.play().catch(()=>{});
+  }
+}
+
 onAuthStateChanged(auth, async (user) => {
   if (!user) return location.href = "/login.html";
 
@@ -288,7 +293,6 @@ onAuthStateChanged(auth, async (user) => {
 
     if (data.type === 'join-request' && role === 'host') {
       pendingRequests.push(data.userId);
-      alert("Pedido para entrar");
     }
 
     if (data.type === 'approved' && data.userId === user.uid) {
@@ -296,34 +300,25 @@ onAuthStateChanged(auth, async (user) => {
     }
   };
 
-  // 🔥 TOKEN (CORRIGIDO)
-  const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}&role=${role}`);
+  // 🔥 LIVEKIT
+  const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
   const tk = await res.json();
 
-  room = new Room({
-    adaptiveStream: true,
-    dynacast: true
+  room = new Room();
+  await room.connect(tk.url, tk.token);
+
+  // 🔥 TRACKS NOVOS
+  room.on('trackSubscribed', (track, pub, participant) => {
+    handleTrack(track, participant, user);
   });
 
-  await room.connect(tk.url, tk.token);
-  console.log("🔥 Conectado ao LiveKit como:", role);
-
-  // 🔥 TRACKS
-  room.on('trackSubscribed', (track, pub, participant) => {
-
-    if (track.kind === 'video') {
-      const stream = new MediaStream([track.mediaStreamTrack]);
-      addVideo(participant.identity + '_' + track.sid, stream);
-    }
-
-    if (track.kind === 'audio') {
-      const audio = document.createElement('audio');
-      audio.srcObject = new MediaStream([track.mediaStreamTrack]);
-      audio.autoplay = true;
-      audio.muted = participant.identity === user.uid; // 🔥 evita eco
-      audio.play().catch(()=>{});
-    }
-
+  // 🔥 TRACKS JÁ EXISTENTES (CORREÇÃO DO BUG)
+  room.remoteParticipants.forEach(participant => {
+    participant.tracks.forEach(publication => {
+      if (publication.isSubscribed && publication.track) {
+        handleTrack(publication.track, participant, user);
+      }
+    });
   });
 
   // 👑 HOST
@@ -332,7 +327,7 @@ onAuthStateChanged(auth, async (user) => {
     await startPublishing();
   }
 
-  // 🎥 PUBLICAR
+  // 🎥 PUBLICAR (CORRIGIDO)
   async function startPublishing() {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
@@ -341,16 +336,16 @@ onAuthStateChanged(auth, async (user) => {
 
     addVideo("self", stream, true);
 
-    const tracks = await room.localParticipant.enableCameraAndMicrophone();
+    for (const track of stream.getTracks()) {
+      await room.localParticipant.publishTrack(track);
+    }
   }
 
-  // ❤️ LIKE
   likeBtn.onclick = () => {
     ws.send(JSON.stringify({ type: 'like' }));
     spawnHeart();
   };
 
-  // 💬 CHAT
   send.onclick = () => {
     if (!msg.value) return;
 
@@ -362,7 +357,6 @@ onAuthStateChanged(auth, async (user) => {
     msg.value = '';
   };
 
-  // 🙋 PARTICIPAR
   joinBtn.onclick = () => {
     ws.send(JSON.stringify({
       type: 'join-request',
@@ -370,7 +364,6 @@ onAuthStateChanged(auth, async (user) => {
     }));
   };
 
-  // 👑 APROVAR
   approveBtn.onclick = () => {
     const userId = pendingRequests.shift();
     if (!userId) return;
