@@ -197,14 +197,26 @@ let room;
 let ws;
 let pendingRequests = [];
 
+// 🔥 PEGAR ELEMENTOS (ESSENCIAL)
 const videoGrid = document.getElementById('videoGrid');
+const likeBtn = document.getElementById('likeBtn');
+const likeCount = document.getElementById('likeCount');
+const joinBtn = document.getElementById('joinBtn');
+const approveBtn = document.getElementById('approveBtn');
+const send = document.getElementById('send');
+const msg = document.getElementById('msg');
+const comments = document.getElementById('comments');
+const hearts = document.getElementById('hearts');
+
 const videos = {};
 
+// 🎥 layout
 function updateLayout() {
   const total = Object.keys(videos).length;
   videoGrid.style.gridTemplateColumns = total <= 1 ? "1fr" : "1fr 1fr";
 }
 
+// 🎥 adicionar vídeo
 function addVideo(id, stream, isLocal = false) {
   if (videos[id]) return;
 
@@ -227,7 +239,7 @@ function addVideo(id, stream, isLocal = false) {
   updateLayout();
 }
 
-/* ❤️ CORAÇÃO SUBINDO */
+// ❤️ coração
 function spawnHeart() {
   const heart = document.createElement('div');
   heart.className = 'heart';
@@ -235,12 +247,11 @@ function spawnHeart() {
 
   heart.style.left = Math.random() * 20 + 'px';
 
-  document.getElementById('hearts').appendChild(heart);
-
+  hearts.appendChild(heart);
   setTimeout(() => heart.remove(), 2000);
 }
 
-/* 💬 COMENTÁRIO */
+// 💬 comentário
 function addComment(user, text) {
   const el = document.createElement('div');
   el.className = 'comment';
@@ -257,6 +268,7 @@ onAuthStateChanged(auth, async (user) => {
   const roomName = params.get('room');
   const role = params.get('role') || 'audience';
 
+  // 🔥 WEBSOCKET
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
@@ -271,34 +283,36 @@ onAuthStateChanged(auth, async (user) => {
   };
 
   ws.onmessage = (event) => {
-    let msg;
-    try { msg = JSON.parse(event.data); } catch { return; }
+    let msgData;
+    try { msgData = JSON.parse(event.data); } catch { return; }
 
-    if (msg.type === 'message') {
-      addComment(msg.username, msg.text);
+    if (msgData.type === 'message') {
+      addComment(msgData.username, msgData.text);
     }
 
-    if (msg.type === 'like-update') {
-      likeCount.textContent = msg.likes;
+    if (msgData.type === 'like-update') {
+      likeCount.textContent = msgData.likes;
       spawnHeart();
     }
 
-    if (msg.type === 'join-request' && role === 'host') {
-      pendingRequests.push(msg.userId);
+    if (msgData.type === 'join-request' && role === 'host') {
+      pendingRequests.push(msgData.userId);
       alert("Pedido para entrar");
     }
 
-    if (msg.type === 'approved' && msg.userId === user.uid) {
+    if (msgData.type === 'approved' && msgData.userId === user.uid) {
       startPublishing();
     }
   };
 
+  // 🔥 LIVEKIT
   const res = await fetch(`/get-token?room=${roomName}&username=${user.uid}`);
   const data = await res.json();
 
   room = new Room();
   await room.connect(data.url, data.token);
 
+  // pegar participantes já conectados
   room.participants.forEach((participant) => {
     participant.tracks.forEach(pub => {
       if (pub.isSubscribed && pub.track) {
@@ -325,11 +339,13 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 
+  // 👑 HOST
   if (role === 'host') {
     approveBtn.style.display = 'block';
     await startPublishing();
   }
 
+  // 🎥 PUBLICAR
   async function startPublishing() {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
@@ -343,12 +359,13 @@ onAuthStateChanged(auth, async (user) => {
     }
   }
 
+  // ❤️ LIKE
   likeBtn.onclick = () => {
     ws.send(JSON.stringify({ type: 'like' }));
-
     spawnHeart();
   };
 
+  // 💬 CHAT
   send.onclick = () => {
     if (!msg.value) return;
 
@@ -360,10 +377,15 @@ onAuthStateChanged(auth, async (user) => {
     msg.value = '';
   };
 
+  // 🙋 PARTICIPAR
   joinBtn.onclick = () => {
-    ws.send(JSON.stringify({ type: 'join-request', userId: user.uid }));
+    ws.send(JSON.stringify({
+      type: 'join-request',
+      userId: user.uid
+    }));
   };
 
+  // 👑 APROVAR
   approveBtn.onclick = () => {
     const userId = pendingRequests.shift();
     if (!userId) return;
@@ -376,6 +398,5 @@ onAuthStateChanged(auth, async (user) => {
 
 });
 </script>
-
 </body>
 </html>
