@@ -242,7 +242,7 @@ function addComment(user, text) {
   setTimeout(() => el.remove(), 6000);
 }
 
-// 🔥 TRACK HANDLER (CORREÇÃO PRINCIPAL)
+// 🔥 TRACK HANDLER
 function handleTrack(track, participant, user) {
 
   if (track.kind === 'video') {
@@ -307,16 +307,18 @@ onAuthStateChanged(auth, async (user) => {
   room = new Room();
   await room.connect(tk.url, tk.token);
 
-  // 🔥 TRACKS NOVOS
+  console.log("🔥 conectado como:", role);
+
+  // 🔥 TRACKS
   room.on('trackSubscribed', (track, pub, participant) => {
     handleTrack(track, participant, user);
   });
 
-  // 🔥 TRACKS JÁ EXISTENTES (CORREÇÃO DO BUG)
+  // 🔥 TRACKS EXISTENTES
   room.remoteParticipants.forEach(participant => {
-    participant.tracks.forEach(publication => {
-      if (publication.isSubscribed && publication.track) {
-        handleTrack(publication.track, participant, user);
+    participant.tracks.forEach(pub => {
+      if (pub.isSubscribed && pub.track) {
+        handleTrack(pub.track, participant, user);
       }
     });
   });
@@ -327,7 +329,7 @@ onAuthStateChanged(auth, async (user) => {
     await startPublishing();
   }
 
-  // 🎥 PUBLICAR (CORRIGIDO)
+  // 🎥 PUBLICAR (CORREÇÃO FINAL)
   async function startPublishing() {
     const stream = await navigator.mediaDevices.getUserMedia({
       video: true,
@@ -336,9 +338,9 @@ onAuthStateChanged(auth, async (user) => {
 
     addVideo("self", stream, true);
 
-    for (const track of stream.getTracks()) {
-      await room.localParticipant.publishTrack(track);
-    }
+    await room.localParticipant.enableCameraAndMicrophone();
+
+    console.log("🎥 transmissão iniciada");
   }
 
   likeBtn.onclick = () => {
