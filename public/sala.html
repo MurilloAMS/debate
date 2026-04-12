@@ -306,6 +306,7 @@ onAuthStateChanged(auth, async (user) => {
   });
 
   await room.connect(tk.url, tk.token);
+  console.log("🔥 Conectado ao LiveKit como:", role);
 
   // 🔥 TRACKS
   room.on('trackSubscribed', (track, pub, participant) => {
@@ -340,9 +341,7 @@ onAuthStateChanged(auth, async (user) => {
 
     addVideo("self", stream, true);
 
-    for (const track of stream.getTracks()) {
-      await room.localParticipant.publishTrack(track);
-    }
+    const tracks = await room.localParticipant.enableCameraAndMicrophone();
   }
 
   // ❤️ LIKE
