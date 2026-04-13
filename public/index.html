@@ -14,7 +14,6 @@
       overflow: hidden;
     }
 
-    /* 🔥 TOPO */
     .top-bar {
       position: fixed;
       top: 0;
@@ -22,7 +21,6 @@
       height: 50px;
       z-index: 1000;
       display: flex;
-      justify-content: space-between;
       align-items: center;
       padding: 0 12px;
       background: rgba(0,0,0,0.9);
@@ -35,23 +33,38 @@
       font-size: 18px;
     }
 
+    .search-box {
+      flex: 1;
+      margin: 0 10px;
+    }
+
+    .search-box input {
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: 20px;
+      border: none;
+      background: #222;
+      color: white;
+    }
+
     .right {
       display: flex;
       align-items: center;
-      gap: 8px;
-      max-width: 60%;
+      gap: 12px;
     }
 
-    #username {
-      font-size: 13px;
-      max-width: 100px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
+    .profile-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: 2px solid red;
+      object-fit: cover;
+      cursor: pointer;
     }
 
     .bell {
       font-size: 16px;
+      cursor: pointer;
     }
 
     #logoutBtn {
@@ -64,7 +77,6 @@
       font-size: 11px;
     }
 
-    /* 🔥 CATEGORIAS */
     .categories {
       position: fixed;
       top: 50px;
@@ -87,7 +99,6 @@
       font-size: 12px;
     }
 
-    /* 🔥 FEED */
     .feed {
       position: fixed;
       top: 100px;
@@ -110,7 +121,6 @@
       background: black;
     }
 
-    /* 🔥 OVERLAY */
     .overlay {
       position: absolute;
       bottom: 80px;
@@ -120,17 +130,6 @@
       text-shadow: 0 0 5px black;
     }
 
-    .overlay h3 {
-      margin: 0;
-      font-size: 18px;
-    }
-
-    .overlay p {
-      margin: 2px 0;
-      font-size: 13px;
-    }
-
-    /* 🔥 BOTÃO LIVE */
     #startLiveBtn {
       position: fixed;
       bottom: 20px;
@@ -150,18 +149,20 @@
 
 <body>
 
-<!-- 🔥 TOPO -->
 <div class="top-bar">
   <div class="logo">DEBATE</div>
 
+  <div class="search-box">
+    <input id="searchInput" placeholder="Buscar debates..." />
+  </div>
+
   <div class="right">
-    <span id="username"></span>
     <span class="bell">🔔</span>
+    <img id="profileBtn" class="profile-btn" src="https://via.placeholder.com/40" />
     <button id="logoutBtn">Sair</button>
   </div>
 </div>
 
-<!-- 🔥 CATEGORIAS -->
 <div class="categories">
   <span>🔥 Em alta</span>
   <span>🎮 Games</span>
@@ -169,19 +170,17 @@
   <span>📈 Negócios</span>
 </div>
 
-<!-- 🔥 FEED -->
 <div class="feed" id="feed"></div>
 
-<!-- 🔥 BOTÃO -->
 <button id="startLiveBtn">+ Live</button>
 
-<!-- 🔥 AUTH -->
+<!-- 🔥 AUTH + PERFIL -->
 <script type="module">
 import { auth, onAuthStateChanged, signOut, db } from '/firebase.js';
 import { doc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-const username = document.getElementById('username');
 const logoutBtn = document.getElementById('logoutBtn');
+const profileBtn = document.getElementById('profileBtn');
 
 onAuthStateChanged(auth, async (user) => {
   if (!user) {
@@ -193,13 +192,15 @@ onAuthStateChanged(auth, async (user) => {
     const snap = await getDoc(doc(db, "usuarios", user.uid));
 
     if (snap.exists()) {
-      username.textContent = snap.data().nome || "Usuário";
-    } else {
-      username.textContent = user.email.split('@')[0];
+      const data = snap.data();
+
+      if (data.foto) {
+        profileBtn.src = data.foto;
+      }
     }
 
-  } catch {
-    username.textContent = user.email.split('@')[0];
+  } catch (err) {
+    console.log("Erro ao carregar perfil");
   }
 });
 
@@ -207,18 +208,25 @@ logoutBtn.onclick = async () => {
   await signOut(auth);
   location.href = 'login.html';
 };
+
+// 👉 abrir perfil
+profileBtn.onclick = () => {
+  location.href = `/perfil.html?uid=${auth.currentUser.uid}`;
+};
 </script>
 
-<!-- 🔥 FEED -->
 <script type="module" src="/home.js"></script>
 
-<!-- 🔥 CRIAR LIVE -->
 <script>
 document.getElementById('startLiveBtn').onclick = () => {
-  const room = prompt('Nome da sua live:');
+
+  const room = prompt('Nome da live:');
   if (!room) return;
 
-  location.href = `/sala.html?room=${room}&role=host`;
+  const topic = prompt('Assunto da live:');
+  if (!topic) return;
+
+  location.href = `/sala.html?room=${room}&role=host&topic=${topic}`;
 };
 </script>
 

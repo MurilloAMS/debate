@@ -1,6 +1,6 @@
 import { auth, onAuthStateChanged } from './firebase.js';
 import {
-  getFirestore, doc, getDoc, updateDoc, arrayUnion, arrayRemove
+  getFirestore, doc, getDoc, updateDoc, setDoc, arrayUnion, arrayRemove
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 import {
@@ -28,17 +28,25 @@ const livesEl = document.getElementById('lives');
 const feedPerfil = document.getElementById('feedPerfil');
 const videosGrid = document.getElementById('videosGrid');
 
-// 🔥 REMOVIDO WebRTC antigo
 let rooms = [];
 let currentUser;
 let perfilData;
+let wsInterval;
 
-// 🔥 WEBSOCKET CORRIGIDO (HTTPS SAFE)
+// 🔥 WEBSOCKET PROFISSIONAL
 const wsProto = location.protocol === 'https:' ? 'wss' : 'ws';
 const ws = new WebSocket(`${wsProto}://${location.host}`);
 
 ws.onopen = () => {
+
   ws.send(JSON.stringify({ type: 'get-rooms' }));
+
+  // 🔥 evita duplicação
+  if (wsInterval) clearInterval(wsInterval);
+
+  wsInterval = setInterval(() => {
+    ws.send(JSON.stringify({ type: 'get-rooms' }));
+  }, 3000);
 };
 
 ws.onmessage = (event) => {
@@ -48,7 +56,7 @@ ws.onmessage = (event) => {
   if (msg.type === 'rooms-list') {
     rooms = msg.rooms;
     renderLives();
-    renderFeedPerfil();
+    renderFeedCompleto();
   }
 };
 
@@ -58,15 +66,26 @@ const perfilUid = params.get('uid');
 
 // ===================== LOGIN =====================
 onAuthStateChanged(auth, async (user) => {
-  if (!user) {
-    location.href = 'login.html';
-    return;
-  }
+
+  if (!user) return location.href = 'login.html';
 
   currentUser = user;
   const uid = perfilUid || user.uid;
 
-  const snap = await getDoc(doc(db, "usuarios", uid));
+  let refUser = doc(db, "usuarios", uid);
+  let snap = await getDoc(refUser);
+
+  if (!snap.exists()) {
+    await setDoc(refUser, {
+      nome: "Usuário",
+      bio: "",
+      foto: "",
+      seguidores: [],
+      seguindo: []
+    });
+    snap = await getDoc(refUser);
+  }
+
   perfilData = snap.data();
 
   foto.src = perfilData?.foto || user.photoURL || 'default-avatar.png';
@@ -79,35 +98,47 @@ onAuthStateChanged(auth, async (user) => {
   bioInput.value = perfilData?.bio || '';
 
   loadReplays();
-
-  // ===================== FOLLOW =====================
-  if (uid !== user.uid) {
-    const isFollowing = perfilData?.seguidores?.includes(user.uid);
-    followBtn.textContent = isFollowing ? 'Deixar de seguir' : 'Seguir';
-
-    followBtn.onclick = async () => {
-      if (isFollowing) {
-        await updateDoc(doc(db, "usuarios", user.uid), {
-          seguindo: arrayRemove(uid)
-        });
-        await updateDoc(doc(db, "usuarios", uid), {
-          seguidores: arrayRemove(user.uid)
-        });
-        followBtn.textContent = 'Seguir';
-      } else {
-        await updateDoc(doc(db, "usuarios", user.uid), {
-          seguindo: arrayUnion(uid)
-        });
-        await updateDoc(doc(db, "usuarios", uid), {
-          seguidores: arrayUnion(user.uid)
-        });
-        followBtn.textContent = 'Deixar de seguir';
-      }
-    };
-  } else {
-    followBtn.style.display = 'none';
-  }
+  setupFollow(uid);
 });
+
+// ===================== FOLLOW =====================
+async function setupFollow(uid) {
+
+  if (uid === currentUser.uid) {
+    followBtn.style.display = 'none';
+    return;
+  }
+
+  const mySnap = await getDoc(doc(db, "usuarios", currentUser.uid));
+  const isFollowing = mySnap.data()?.seguindo?.includes(uid);
+
+  updateFollowUI(isFollowing);
+
+  followBtn.onclick = async () => {
+
+    if (isFollowing) {
+      await updateDoc(doc(db, "usuarios", currentUser.uid), {
+        seguindo: arrayRemove(uid)
+      });
+      await updateDoc(doc(db, "usuarios", uid), {
+        seguidores: arrayRemove(currentUser.uid)
+      });
+    } else {
+      await updateDoc(doc(db, "usuarios", currentUser.uid), {
+        seguindo: arrayUnion(uid)
+      });
+      await updateDoc(doc(db, "usuarios", uid), {
+        seguidores: arrayUnion(currentUser.uid)
+      });
+    }
+
+    location.reload();
+  };
+}
+
+function updateFollowUI(isFollowing) {
+  followBtn.textContent = isFollowing ? 'Seguindo' : 'Seguir';
+}
 
 // ===================== EDITAR =====================
 editarBtn.onclick = () => {
@@ -122,7 +153,6 @@ salvar.onclick = async () => {
   });
 
   bioView.textContent = bioInput.value;
-  alert('Perfil atualizado!');
 };
 
 // ===================== FOTO =====================
@@ -131,6 +161,7 @@ foto.onclick = () => {
 };
 
 uploadFoto.onchange = async () => {
+
   const file = uploadFoto.files[0];
   if (!file) return;
 
@@ -146,14 +177,13 @@ uploadFoto.onchange = async () => {
   foto.src = url;
 };
 
-// ===================== LIVES =====================
+// ===================== LIVES
 function renderLives() {
-  const uid = perfilUid || currentUser.uid;
-  const userLives = rooms.filter(r => r.hostUid === uid);
 
   livesEl.innerHTML = '';
 
-  userLives.forEach(l => {
+  rooms.forEach(l => {
+
     const div = document.createElement('div');
     div.className = 'live-card';
 
@@ -172,36 +202,11 @@ function renderLives() {
   });
 }
 
-// ===================== FEED PERFIL =====================
-function renderFeedPerfil() {
-  const uid = perfilUid || currentUser.uid;
-  const userRooms = rooms.filter(r => r.hostUid === uid);
-
-  feedPerfil.innerHTML = '';
-
-  userRooms.forEach(roomData => {
-    const div = document.createElement('div');
-    div.className = 'feed-item-perfil';
-
-    div.innerHTML = `
-      <div class="feed-overlay">
-        🔴 ${roomData.room} • 👥 ${roomData.count}
-      </div>
-
-      <button class="enter-btn-perfil">Entrar</button>
-    `;
-
-    div.querySelector('.enter-btn-perfil').onclick = () => {
-      location.href = `sala.html?room=${roomData.room}`;
-    };
-
-    feedPerfil.appendChild(div);
-  });
-}
-
-// ===================== REPLAYS =====================
+// ===================== REPLAYS
 async function loadReplays() {
+
   try {
+
     const res = await fetch('/replays');
     const videos = await res.json();
 
@@ -211,6 +216,7 @@ async function loadReplays() {
     videosGrid.innerHTML = '';
 
     userVideos.forEach(v => {
+
       const div = document.createElement('div');
       div.className = 'video-item';
 
@@ -233,7 +239,92 @@ async function loadReplays() {
   }
 }
 
-// ===================== NAVEGAÇÃO =====================
+// ===================== FEED PROFISSIONAL
+async function renderFeedCompleto() {
+
+  const uid = perfilUid || currentUser.uid;
+
+  let items = [];
+
+  // 🔴 LIVES
+  rooms.forEach(l => {
+    items.push({
+      tipo: 'live',
+      room: l.room,
+      count: l.count,
+      createdAt: Date.now() - (l.tempo || 0) * 60000
+    });
+  });
+
+  // 🎬 REPLAYS
+  try {
+    const res = await fetch('/replays');
+    const videos = await res.json();
+
+    const userVideos = videos.filter(v => v.userId === uid);
+
+    userVideos.forEach(v => {
+      items.push({
+        tipo: 'replay',
+        video: v,
+        createdAt: v.createdAt || 0
+      });
+    });
+
+  } catch {}
+
+  // 🔥 ORDENAÇÃO
+  items.sort((a, b) => b.createdAt - a.createdAt);
+
+  renderFeedUI(items);
+}
+
+function renderFeedUI(items) {
+
+  feedPerfil.innerHTML = '';
+
+  items.forEach(item => {
+
+    const div = document.createElement('div');
+    div.className = 'feed-item-perfil';
+
+    if (item.tipo === 'live') {
+
+      div.innerHTML = `
+        <div class="feed-overlay">
+          🔴 AO VIVO<br>
+          ${item.room}<br>
+          👥 ${item.count}
+        </div>
+
+        <button class="enter-btn-perfil">Entrar</button>
+      `;
+
+      div.onclick = () => {
+        location.href = `sala.html?room=${item.room}`;
+      };
+    }
+
+    if (item.tipo === 'replay') {
+
+      div.innerHTML = `
+        <video src="${item.video.path}" muted autoplay loop></video>
+
+        <div class="feed-overlay">
+          ❤️ ${item.video.likes || 0} | 👁️ ${item.video.views || 0}
+        </div>
+      `;
+
+      div.onclick = () => {
+        location.href = `replays.html?video=${item.video.id}`;
+      };
+    }
+
+    feedPerfil.appendChild(div);
+  });
+}
+
+// ===================== NAV
 window.abrirSeguidores = () => {
   location.href = `seguidores.html?uid=${perfilUid || currentUser.uid}`;
 };

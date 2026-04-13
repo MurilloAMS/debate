@@ -1,3 +1,12 @@
+// 🔍 BUSCA
+const searchInput = document.getElementById('searchInput');
+let searchTerm = "";
+
+searchInput.addEventListener('input', () => {
+  searchTerm = searchInput.value.toLowerCase();
+  renderFeed();
+});
+
 // 🔥 FIREBASE
 import { auth, onAuthStateChanged } from '/firebase.js';
 
@@ -33,28 +42,21 @@ function initWebSocket() {
 
     ws.send(JSON.stringify({ type: 'get-rooms' }));
 
-    setTimeout(() => {
-      ws.send(JSON.stringify({ type: 'get-rooms' }));
-    }, 1000);
-
-    setTimeout(() => {
-      ws.send(JSON.stringify({ type: 'get-rooms' }));
-    }, 2000);
+    setTimeout(() => ws.send(JSON.stringify({ type: 'get-rooms' })), 1000);
+    setTimeout(() => ws.send(JSON.stringify({ type: 'get-rooms' })), 2000);
 
     interval = setInterval(() => {
       ws.send(JSON.stringify({ type: 'get-rooms' }));
     }, 3000);
   };
 
-  ws.onclose = () => {
-    clearInterval(interval);
-  };
+  ws.onclose = () => clearInterval(interval);
 
   ws.onmessage = (event) => {
     let msg;
     try { msg = JSON.parse(event.data); } catch { return; }
 
-    // ===================== ROOMS LIST (CORRIGIDO)
+    // 🔥 LISTA DE SALAS
     if (msg.type === 'rooms-list') {
 
       const incoming = msg.rooms;
@@ -69,16 +71,14 @@ function initWebSocket() {
         }
       });
 
-      // 🔥 remove salas inválidas
       roomsData = roomsData.filter(r => r.count > 0);
 
-      // 🔥 ordena por score
       roomsData.sort((a, b) => (b.score || 0) - (a.score || 0));
 
       renderFeed();
     }
 
-    // ===================== NOVA LIVE
+    // 🔥 NOVA LIVE
     if (msg.type === 'room-started') {
       const exists = roomsData.find(r => r.room === msg.room);
 
@@ -86,6 +86,7 @@ function initWebSocket() {
         roomsData.unshift({
           room: msg.room,
           host: msg.host,
+          topic: msg.topic || "geral",
           count: 1,
           likes: 0,
           score: 999
@@ -101,40 +102,48 @@ function initWebSocket() {
 function renderFeed() {
   feed.innerHTML = '';
 
-  // 🔥 evita múltiplos observers bugando
   if (observer) observer.disconnect();
 
   observer = new IntersectionObserver(handleVisibility, {
     threshold: 0.7
   });
 
-  roomsData.forEach(room => {
+  roomsData
+    .filter(room => {
+      if (!searchTerm) return true;
 
-    const container = document.createElement('div');
-    container.className = 'video-container';
-    container.dataset.room = room.room;
+      return (
+        (room.room || "").toLowerCase().includes(searchTerm) ||
+        (room.host || "").toLowerCase().includes(searchTerm) ||
+        (room.topic || "").toLowerCase().includes(searchTerm)
+      );
+    })
+    .forEach(room => {
 
-    container.innerHTML = `
-      <video muted playsinline></video>
+      const container = document.createElement('div');
+      container.className = 'video-container';
+      container.dataset.room = room.room;
 
-      <div class="overlay">
-        <h3>${room.room}</h3>
-        <p>🎤 ${room.host || "Usuário"}</p>
-        <p>👥 ${room.count}</p>
-      </div>
-    `;
+      container.innerHTML = `
+        <video muted playsinline></video>
 
-    // 👉 entrar na live (somente clicando no vídeo)
-    container.addEventListener('click', (e) => {
-      if (e.target.tagName === 'VIDEO') {
-        location.href = `sala.html?room=${room.room}`;
-      }
+        <div class="overlay">
+          <h3>${room.room}</h3>
+          <p>🔥 ${room.topic || "Geral"}</p>
+          <p>👥 ${room.count}</p>
+        </div>
+      `;
+
+      // 👉 entrar na live
+      container.addEventListener('click', (e) => {
+        if (e.target.tagName === 'VIDEO') {
+          location.href = `sala.html?room=${room.room}`;
+        }
+      });
+
+      feed.appendChild(container);
+      observer.observe(container);
     });
-
-    feed.appendChild(container);
-
-    observer.observe(container);
-  });
 }
 
 // ===================== AUTO PLAY =====================
@@ -197,7 +206,7 @@ function stopPreview(roomName) {
   delete activeRooms[roomName];
 }
 
-// ===================== FOCO (ATUALIZA FEED)
+// ===================== FOCO =====================
 window.addEventListener('focus', () => {
   if (ws && ws.readyState === 1) {
     ws.send(JSON.stringify({ type: 'get-rooms' }));

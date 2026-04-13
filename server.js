@@ -13,17 +13,17 @@ const server = http.createServer(app);
 
 app.use(express.json());
 
-// ===================== 🔥 VARIÁVEIS LIVEKIT
+// ===================== LIVEKIT
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
 const LIVEKIT_URL = process.env.LIVEKIT_URL;
 
 if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET || !LIVEKIT_URL) {
-  console.error("❌ ERRO CRÍTICO: Variáveis do LiveKit não configuradas!");
+  console.error("❌ ERRO CRÍTICO: LiveKit não configurado!");
   process.exit(1);
 }
 
-// ===================== STATIC =====================
+// ===================== STATIC
 const publicPath = path.join(__dirname, 'public');
 app.use(express.static(publicPath));
 
@@ -31,10 +31,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(publicPath, 'index.html'));
 });
 
-// ===================== UPLOAD =====================
+// ===================== UPLOAD (mantido)
 const upload = multer({ dest: 'uploads/' });
+app.use('/uploads', express.static('uploads'));
 
-// ===================== DB =====================
 const DB_FILE = './replays.json';
 
 if (!fs.existsSync(DB_FILE)) {
@@ -49,7 +49,6 @@ function saveDB(data) {
   fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
 }
 
-// ===================== UPLOAD =====================
 app.post('/upload', upload.single('video'), (req, res) => {
   try {
     const file = req.file;
@@ -87,28 +86,25 @@ app.post('/upload', upload.single('video'), (req, res) => {
   }
 });
 
-app.use('/uploads', express.static('uploads'));
-
-// ===================== WEBSOCKET =====================
+// ===================== WEBSOCKET
 const wss = new WebSocketServer({ server });
 const rooms = new Map();
 
 wss.on('connection', (ws) => {
+
   ws.roomId = null;
   ws.userId = null;
   ws.username = 'Anônimo';
   ws.role = 'audience';
 
   ws.on('message', (raw) => {
-    let msg;
-    try {
-      msg = JSON.parse(raw.toString());
-    } catch {
-      return;
-    }
 
-    // ===== JOIN =====
+    let msg;
+    try { msg = JSON.parse(raw.toString()); } catch { return; }
+
+    // ===================== JOIN
     if (msg.type === 'join') {
+
       const room = msg.room || 'default';
 
       ws.roomId = room;
@@ -122,7 +118,9 @@ wss.on('connection', (ws) => {
           hostName: null,
           hostUid: null,
           createdAt: Date.now(),
+          startedAt: Date.now(),
           likes: 0,
+          assunto: "Geral",
           isLive: false
         });
       }
@@ -130,9 +128,13 @@ wss.on('connection', (ws) => {
       const roomData = rooms.get(room);
       roomData.clients.add(ws);
 
+      // 🔥 HOST
       if (ws.role === 'host') {
+
         roomData.hostName = ws.username;
         roomData.hostUid = ws.userId;
+        roomData.assunto = msg.assunto || "Geral";
+        roomData.startedAt = Date.now();
         roomData.isLive = true;
 
         console.log(`🔴 Live iniciada: ${room}`);
@@ -140,7 +142,8 @@ wss.on('connection', (ws) => {
         broadcastGlobal({
           type: 'room-started',
           room,
-          host: ws.username
+          host: ws.username,
+          assunto: roomData.assunto
         });
       }
 
@@ -149,7 +152,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== JOIN REQUEST =====
+    // ===================== JOIN REQUEST
     if (msg.type === 'join-request') {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
@@ -165,7 +168,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== APPROVE =====
+    // ===================== APPROVE
     if (msg.type === 'approve-user') {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
@@ -181,7 +184,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== LIKE =====
+    // ===================== LIKE
     if (msg.type === 'like') {
       const roomData = rooms.get(ws.roomId);
       if (!roomData) return;
@@ -196,7 +199,7 @@ wss.on('connection', (ws) => {
       return;
     }
 
-    // ===== GET ROOMS =====
+    // ===================== GET ROOMS
     if (msg.type === 'get-rooms') {
       sendRooms(ws);
       return;
@@ -211,13 +214,16 @@ wss.on('connection', (ws) => {
   });
 
   ws.on('close', () => {
+
     const room = ws.roomId;
 
     if (room && rooms.has(room)) {
+
       const roomData = rooms.get(room);
       roomData.clients.delete(ws);
 
       if (roomData.clients.size === 0) {
+
         setTimeout(() => {
           if (rooms.has(room) && rooms.get(room).clients.size === 0) {
             rooms.delete(room);
@@ -233,44 +239,7 @@ wss.on('connection', (ws) => {
   });
 });
 
-// ===================== ROOMS =====================
-function sendRooms(ws) {
-  const list = [];
-
-  for (const [roomId, data] of rooms.entries()) {
-    if (!data.isLive) continue;
-
-    list.push({
-      room: roomId,
-      count: data.clients.size,
-      host: data.hostName,
-      likes: data.likes,
-      score: data.clients.size
-    });
-  }
-
-  ws.send(JSON.stringify({ type: 'rooms-list', rooms: list }));
-}
-
-function broadcastRooms() {
-  const list = [];
-
-  for (const [roomId, data] of rooms.entries()) {
-    if (!data.isLive) continue;
-
-    list.push({
-      room: roomId,
-      count: data.clients.size,
-      host: data.hostName,
-      likes: data.likes,
-      score: data.clients.size
-    });
-  }
-
-  broadcastGlobal({ type: 'rooms-list', rooms: list });
-}
-
-// ===================== USERS =====================
+// ===================== USERS
 function sendUsers(room) {
   if (!rooms.has(room)) return;
 
@@ -287,7 +256,66 @@ function sendUsers(room) {
   });
 }
 
-// ===================== BROADCAST =====================
+// ===================== ROOMS
+function sendRooms(ws) {
+
+  const list = [];
+  const now = Date.now();
+
+  for (const [roomId, data] of rooms.entries()) {
+
+    if (!data.isLive) continue;
+
+    const tempo = Math.floor((now - data.startedAt) / 60000);
+
+    const score =
+      (data.clients.size * 2) +
+      tempo;
+
+    list.push({
+      room: roomId,
+      count: data.clients.size,
+      host: data.hostName,
+      assunto: data.assunto,
+      tempo,
+      likes: data.likes,
+      score
+    });
+  }
+
+  ws.send(JSON.stringify({ type: 'rooms-list', rooms: list }));
+}
+
+function broadcastRooms() {
+
+  const list = [];
+  const now = Date.now();
+
+  for (const [roomId, data] of rooms.entries()) {
+
+    if (!data.isLive) continue;
+
+    const tempo = Math.floor((now - data.startedAt) / 60000);
+
+    const score =
+      (data.clients.size * 2) +
+      tempo;
+
+    list.push({
+      room: roomId,
+      count: data.clients.size,
+      host: data.hostName,
+      assunto: data.assunto,
+      tempo,
+      likes: data.likes,
+      score
+    });
+  }
+
+  broadcastGlobal({ type: 'rooms-list', rooms: list });
+}
+
+// ===================== BROADCAST
 function broadcast(sender, data) {
   const room = sender.roomId;
   if (!room || !rooms.has(room)) return;
@@ -317,16 +345,13 @@ function broadcastGlobal(data) {
   });
 }
 
-// ===================== 🔥 TOKEN FINAL (CORRIGIDO)
+// ===================== TOKEN
 app.get('/get-token', async (req, res) => {
   try {
+
     const room = req.query.room;
     const username = req.query.username || 'user';
     const role = req.query.role || 'audience';
-
-    if (!room) {
-      return res.status(400).json({ error: 'Room não informado' });
-    }
 
     const at = new AccessToken(
       LIVEKIT_API_KEY,
@@ -334,12 +359,10 @@ app.get('/get-token', async (req, res) => {
       { identity: username }
     );
 
-    const isHost = role === 'host';
-
     at.addGrant({
       roomJoin: true,
-      room: room,
-      canPublish: isHost,
+      room,
+      canPublish: role === 'host',
       canSubscribe: true
     });
 
@@ -352,7 +375,7 @@ app.get('/get-token', async (req, res) => {
 
   } catch (err) {
     console.error("❌ ERRO TOKEN:", err);
-    res.status(500).json({ error: 'Erro interno ao gerar token' });
+    res.status(500).json({ error: 'Erro ao gerar token' });
   }
 });
 

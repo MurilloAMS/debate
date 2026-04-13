@@ -1,213 +1,217 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Perfil</title>
-  <link rel="stylesheet" href="/style.css" />
+<meta charset="UTF-8" />
+<title>Perfil</title>
 
-  <style>
-    body {
-      margin: 0;
-      background: #0b0f14;
-      color: white;
-      font-family: Arial;
-    }
+<style>
+body {
+  margin: 0;
+  background: #0b0f14;
+  color: white;
+  font-family: Arial;
+}
 
-    .perfil-container {
-      max-width: 500px;
-      margin: auto;
-    }
+/* 🔥 TOPO */
+.top-bar {
+  position: sticky;
+  top: 0;
+  background: #0b0f14;
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 10;
+}
 
-    .header {
-      padding: 30px 20px;
-      text-align: center;
-      background: linear-gradient(to bottom, #111, transparent);
-    }
+.back {
+  font-size: 20px;
+  cursor: pointer;
+}
 
-    .foto {
-      width: 110px;
-      height: 110px;
-      border-radius: 50%;
-      border: 3px solid red;
-      object-fit: cover;
-      cursor: pointer;
-    }
+/* 🔥 CONTAINER */
+.perfil-container {
+  max-width: 500px;
+  margin: auto;
+}
 
-    .nome {
-      font-size: 20px;
-      margin-top: 10px;
-      font-weight: bold;
-    }
+/* 🔥 HEADER */
+.header {
+  padding: 20px;
+  text-align: center;
+}
 
-    .bio {
-      font-size: 14px;
-      color: #aaa;
-      margin-top: 5px;
-    }
+.foto {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: 3px solid red;
+  object-fit: cover;
+  cursor: pointer;
+}
 
-    .stats {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 20px;
-    }
+.nome {
+  font-size: 20px;
+  margin-top: 10px;
+  font-weight: bold;
+}
 
-    .stats div {
-      text-align: center;
-      cursor: pointer;
-    }
+.bio {
+  font-size: 14px;
+  color: #aaa;
+  margin-top: 5px;
+}
 
-    .stats strong {
-      font-size: 18px;
-    }
+/* 🔥 STATS */
+.stats {
+  display: flex;
+  justify-content: space-around;
+  margin-top: 20px;
+}
 
-    .stats p {
-      font-size: 12px;
-      color: #aaa;
-    }
+.stats div {
+  text-align: center;
+  cursor: pointer;
+}
 
-    .actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 15px;
-      justify-content: center;
-    }
+.stats strong {
+  font-size: 18px;
+}
 
-    .btn {
-      padding: 8px 16px;
-      border-radius: 20px;
-      border: none;
-      cursor: pointer;
-      font-size: 13px;
-    }
+/* 🔥 AÇÕES */
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+  justify-content: center;
+}
 
-    .btn-follow {
-      background: red;
-      color: white;
-    }
+.btn {
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+}
 
-    .btn-edit {
-      background: #222;
-      color: white;
-    }
+.btn-follow {
+  background: red;
+  color: white;
+}
 
-    .section {
-      padding: 20px;
-    }
+.btn-edit {
+  background: #222;
+  color: white;
+}
 
-    .live-card {
-      position: relative;
-      height: 150px;
-      background: #111;
-      border-radius: 12px;
-      margin-bottom: 15px;
-      overflow: hidden;
-      cursor: pointer;
-    }
+/* 🔥 SEÇÕES */
+.section {
+  padding: 15px;
+}
 
-    .live-overlay {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      font-size: 14px;
-    }
+.section h3 {
+  margin-bottom: 10px;
+}
 
-    .live-badge {
-      position: absolute;
-      top: 10px;
-      left: 10px;
-      background: red;
-      padding: 4px 8px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
+/* 🔴 LIVE */
+.live-card {
+  position: relative;
+  height: 150px;
+  background: #111;
+  border-radius: 12px;
+  margin-bottom: 10px;
+  overflow: hidden;
+}
 
-    .bio-edit {
-      width: 100%;
-      padding: 10px;
-      border-radius: 10px;
-      border: none;
-      background: #111;
-      color: white;
-      margin-top: 10px;
-    }
+.live-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: red;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+}
 
-    .feed-perfil {
-      height: 400px;
-      overflow-y: scroll;
-      scroll-snap-type: y mandatory;
-    }
+/* 🎬 GRID REPLAY */
+.videos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
 
-    .feed-item-perfil {
-      height: 300px;
-      margin-bottom: 15px;
-      position: relative;
-      background: black;
-      border-radius: 10px;
-      overflow: hidden;
-      scroll-snap-align: start;
-    }
+.video-item {
+  height: 120px;
+  background: black;
+  position: relative;
+}
 
-    .feed-item-perfil video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+/* 🔥 FEED */
+.feed-perfil {
+  height: 400px;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+}
 
-    .feed-overlay {
-      position: absolute;
-      bottom: 10px;
-      left: 10px;
-      font-size: 13px;
-    }
+.feed-item-perfil {
+  height: 300px;
+  margin-bottom: 12px;
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  scroll-snap-align: start;
+}
 
-    .enter-btn-perfil {
-      position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: red;
-      border: none;
-      padding: 6px 10px;
-      border-radius: 10px;
-      color: white;
-      cursor: pointer;
-    }
+.feed-item-perfil:active {
+  transform: scale(0.97);
+}
 
-    .videos-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 4px;
-    }
+.feed-item-perfil video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
-    .video-item {
-      width: 100%;
-      height: 120px;
-      background: black;
-      position: relative;
-      cursor: pointer;
-    }
+.feed-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  font-size: 14px;
+}
 
-    .video-item video {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
+.enter-btn-perfil {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  background: red;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 20px;
+  color: white;
+}
 
-    .video-overlay {
-      position: absolute;
-      bottom: 5px;
-      left: 5px;
-      font-size: 11px;
-      background: rgba(0,0,0,0.5);
-      padding: 2px 6px;
-      border-radius: 6px;
-    }
-  </style>
+/* 🔥 INPUT BIO */
+.bio-edit {
+  width: 100%;
+  padding: 10px;
+  border-radius: 10px;
+  border: none;
+  background: #111;
+  color: white;
+}
+</style>
 </head>
 
 <body>
 
+<!-- 🔥 TOPO -->
+<div class="top-bar">
+  <span class="back" onclick="history.back()">←</span>
+  <span>Perfil</span>
+</div>
+
 <div class="perfil-container">
 
+  <!-- 🔥 HEADER -->
   <div class="header">
     <img id="foto" class="foto">
     <input type="file" id="uploadFoto" style="display:none">
@@ -232,23 +236,27 @@
     </div>
   </div>
 
+  <!-- 🔥 EDIT -->
   <div class="section" id="editArea" style="display:none;">
     <input id="bio" class="bio-edit" placeholder="Escreva sua bio..." />
     <button id="salvar" class="btn btn-follow">Salvar</button>
   </div>
 
+  <!-- 🔴 LIVE -->
   <div class="section">
     <h3>🔴 Ao vivo</h3>
     <div id="lives"></div>
   </div>
 
+  <!-- 🎬 REPLAYS -->
   <div class="section">
     <h3>🎬 Replays</h3>
     <div id="videosGrid" class="videos-grid"></div>
   </div>
 
+  <!-- 📺 FEED -->
   <div class="section">
-    <h3>📺 Conteúdos ao vivo</h3>
+    <h3>📺 Feed</h3>
     <div id="feedPerfil" class="feed-perfil"></div>
   </div>
 
